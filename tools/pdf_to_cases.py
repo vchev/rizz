@@ -23,6 +23,10 @@ EMOJI = {
     "b2ee6096": "🫠", "b8a1831d": "☺️", "b96d5573": "😉", "b9eaeb13": "😤", "c2f45349": "🤗",
     "cc6454c2": "🙅‍♀️", "cd747962": "👀", "d342ea40": "😂", "d3b26e88": "🥺", "d6645696": "😳",
     "dbfe23a6": "😢", "de8a5c3f": "😆", "ef7b951f": "😁", "f11c7930": "😏", "f361273b": "😓",
+    # Added 2026-11-03 from the Jacob, Avi, Sebastian and Brad threads.
+    "2cbce222": "🫣", "36bca746": "🤣", "6bf26205": "😌", "7faa1d39": "🙈", "015f6238": "🏃‍♀️",
+    "97dc743b": "🙌", "ef2db2e2": "❌", "02716924": "🥸", "cf93ef08": "🙃", "57e3cfad": "🤓",
+    "6d743f23": "😵‍💫", "12c0f619": "😜", "8b350389": "🤩", "d19fa89b": "😴", "4a04f8ed": "🤷‍♀️",
 }
 
 # "Read" only counts as a receipt when everything after it is a time or date
@@ -40,8 +44,11 @@ ADDRESS = re.compile(r"\b\d{2,5}\s+\w+(\s\w+)?\s(st|street|ave|avenue|blvd|rd|ro
 
 PAGE_HEIGHT = 792   # US Letter, used when the extract has no page_height
 EDGE = 60           # points from the top/bottom of a page that count as "at the page break"
-QUOTE_SMALLER = 0.9  # a quoted copy is printed in a smaller font than normal bubbles
-
+# Font size relative to normal bubbles (13pt in macOS Messages prints). Measured on 4 real
+# threads: quoted copies above threaded replies, "N Replies", "Edited" and link domains are
+# 10pt (0.77); link-preview titles are 11pt (0.85).
+SMALL = 0.8
+LINK_TITLE = 0.95
 
 def normalize(text):
     t = re.sub(r"\{E:([0-9a-f]{8})\}", lambda m: EMOJI.get(m.group(1), ""), text)
@@ -52,16 +59,21 @@ def normalize(text):
 
 
 def merge_split(first, second):
-    """Join the two halves of a bubble cut by a page break, removing any repeated part."""
-    if second in first:
+    """Join the two halves of a bubble cut by a page break, or return None if they don't overlap.
+
+    macOS prints the row at a page break on both pages, so a split bubble's halves always share
+    text. Two separate bubbles that happen to sit at the break share none and stay apart.
+    """
+    if first == second:
         return first
-    if first in second:
-        return second
+    short, long_ = sorted((first, second), key=len)
+    if long_.startswith(short) or long_.endswith(short) or (len(short) >= 8 and short in long_):
+        return long_
     a, b = first.split(" "), second.split(" ")
-    for k in range(min(len(a), len(b)), 0, -1):  # longest run of words that ends a and starts b
+    for k in range(min(len(a), len(b)), 1, -1):  # longest run of 2+ words that ends a and starts b
         if a[-k:] == b[:k]:
             return " ".join(a + b[k:])
-    return first + " " + second
+    return None
 
 
 def _same_or_truncated(quote, original):
@@ -92,25 +104,30 @@ def clean(bubbles):
         t = normalize(raw)
         if not t or LABEL.match(t) or DOMAIN.match(t):
             continue
-        # A bubble straddling a page break comes out as two blocks, often cut or overlapping.
+        rel = b["size"] / body_size if body_size and b.get("size") else None
+        if rel is not None and rel < SMALL:
+            # Quoted copy above a threaded reply (or a label/domain): never a new message.
+            continue
+        if rel is not None and rel < LINK_TITLE:
+            t = "[link] " + t
+        # A bubble straddling a page break comes out as two blocks that overlap.
         if last is not None:
             pb, idx = last
             ph = pb.get("page_height") or PAGE_HEIGHT
             if (pb["side"] == b["side"] and b["page"] == pb["page"] + 1
                     and pb["bottom"] > ph - EDGE and b["top"] < EDGE):
-                msgs[idx]["text"] = merge_split(msgs[idx]["text"], t)
-                last = (b, idx)
-                continue
-        # Drop the quoted copy iMessage prints above a threaded reply. Only when there is
-        # evidence it is a quote (a "N Replies" label, or a smaller font), so a message
-        # someone really sent twice is kept.
-        recent = [m["text"] for m in msgs[-6:]]
-        match = next((r for r in reversed(recent) if _same_or_truncated(t, r)), None)
-        if match is not None:
-            small = body_size and b.get("size") and b["size"] < body_size * QUOTE_SMALLER
-            if match in threaded or small:
-                if match in threaded:
-                    threaded.remove(match)
+                merged = merge_split(msgs[idx]["text"], t)
+                if merged is not None:
+                    msgs[idx]["text"] = merged
+                    last = (b, idx)
+                    continue
+        # Without font sizes, fall back to the "N Replies" label to spot a quoted copy, so a
+        # message someone really sent twice is kept.
+        if rel is None:
+            recent = [m["text"] for m in msgs[-6:]]
+            match = next((r for r in reversed(recent) if _same_or_truncated(t, r)), None)
+            if match is not None and match in threaded:
+                threaded.remove(match)
                 last = None
                 continue
         msgs.append({"from": b["side"], "text": t})

@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import pdf_to_cases as p  # noqa: E402
 
 
-def bub(side, text, page=1, top=100, bottom=None, size=12.0, height=792):
+def bub(side, text, page=1, top=100, bottom=None, size=13.0, height=792):
     return {"page": page, "page_height": height, "side": side, "text": text, "size": size,
             "x0": 40 if side == "them" else 300, "x1": 300 if side == "them" else 570,
             "top": top, "bottom": bottom if bottom is not None else top + 20}
@@ -32,12 +32,28 @@ class Receipts(unittest.TestCase):
 
 
 class PageBreaks(unittest.TestCase):
-    def test_split_bubble_joined_into_one(self):
+    def test_bubble_reprinted_on_next_page_kept_once(self):
+        # macOS prints the row at a page break on both pages.
         msgs = p.clean([
-            bub("them", "So I was thinking we could", page=1, top=700, bottom=770),
-            bub("them", "go to the lake on Saturday", page=2, top=36, bottom=60),
+            bub("them", "So I was thinking we could go to the lake", page=1, top=740, bottom=782),
+            bub("them", "So I was thinking we could go to the lake on Saturday", page=2, top=-2, bottom=30),
         ])
         self.assertEqual(msgs, [{"from": "them", "text": "So I was thinking we could go to the lake on Saturday"}])
+
+    def test_clipped_last_word_on_next_page(self):
+        msgs = p.clean([
+            bub("them", "that suitcase would smell like fish for months", page=1, top=748, bottom=779),
+            bub("them", "months", page=2, top=-4, bottom=11),
+        ])
+        self.assertEqual(len(msgs), 1)
+
+    def test_two_messages_at_a_break_stay_apart(self):
+        # Real case: two separate bubbles at the bottom and top of consecutive pages.
+        msgs = p.clean([
+            bub("you", "Sounds good :)", page=1, top=737, bottom=752),
+            bub("you", "My cold got worse today", page=2, top=31, bottom=46),
+        ])
+        self.assertEqual(len(msgs), 2)
 
     def test_overlapping_halves_not_repeated(self):
         msgs = p.clean([
@@ -48,9 +64,9 @@ class PageBreaks(unittest.TestCase):
 
     def test_page_header_does_not_block_merge(self):
         msgs = p.clean([
-            bub("them", "first half", page=1, top=700, bottom=770),
-            bub("center", "Jacob", page=2, top=10, bottom=25),
-            bub("them", "second half", page=2, top=36, bottom=58),
+            bub("them", "first half and second", page=1, top=700, bottom=770),
+            bub("center", "Tue, Aug 18 at 5:14 PM", page=2, top=-7, bottom=5),
+            bub("them", "first half and second half", page=2, top=10, bottom=40),
         ])
         self.assertEqual(len(msgs), 1)
 
@@ -82,6 +98,19 @@ class Repeats(unittest.TestCase):
         self.assertEqual([m["text"] for m in msgs],
                          ["want to get dinner friday?", "also how was the trip", "yes!! friday works"])
 
+    def test_link_preview_title_marked(self):
+        msgs = p.clean([bub("you", "any bar ideas?", top=40), bub("you", "somewhere quiet", top=70),
+                        bub("them", "You might like this:"), bub("them", "8 Great Speakeasies in SF", top=130, size=11.0),
+                        bub("them", "instagram.com", top=150, size=10.0)])
+        self.assertEqual([m["text"] for m in msgs][2:], ["You might like this:", "[link] 8 Great Speakeasies in SF"])
+
+    def test_quote_dropped_from_old_extract_without_sizes(self):
+        msgs = p.clean([dict(bub("them", "want to get dinner friday?"), size=None),
+                        dict(bub("them", "1 Reply", top=122), size=None),
+                        dict(bub("them", "want to get dinner friday?", top=160), size=None),
+                        dict(bub("you", "yes", top=180), size=None)])
+        self.assertEqual([m["text"] for m in msgs], ["want to get dinner friday?", "yes"])
+
     def test_small_font_quote_dropped_without_label(self):
         msgs = p.clean([
             bub("them", "want to get dinner friday?", top=100),
@@ -90,6 +119,26 @@ class Repeats(unittest.TestCase):
             bub("you", "yes", top=180),
         ])
         self.assertEqual([m["text"] for m in msgs], ["want to get dinner friday?", "omg", "yes"])
+
+
+class EmojiKey(unittest.TestCase):
+    def test_same_picture_same_id_after_decoding(self):
+        import extract_pdf
+
+        class Stream:
+            raw = b"compressed"
+
+            def get_rawdata(self):
+                return self.raw
+
+            def get_data(self):  # decoding throws the raw bytes away, like pdfminer does
+                self.raw = None
+                return b"decoded"
+
+        s, cache = Stream(), {}
+        first = extract_pdf.emoji_key(s, cache)
+        s.get_data()
+        self.assertEqual(extract_pdf.emoji_key(s, cache), first)
 
 
 class CutPoints(unittest.TestCase):

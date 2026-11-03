@@ -60,12 +60,27 @@ def emoji_png(img, key, emoji_dir):
         print("could not save", key, e, file=sys.stderr)
 
 
+def emoji_key(stream, cache):
+    """Stable id for an emoji picture: hash of its raw (compressed) bytes.
+
+    The same picture is shared across pages, and decoding it to save the PNG replaces the raw
+    bytes in memory, so the hash is taken once per picture and remembered. Hashing on every use
+    gave a different id for the same emoji depending on whether its PNG was already saved.
+    """
+    sid = id(stream)
+    if sid not in cache:
+        raw = stream.get_rawdata()
+        cache[sid] = hashlib.md5(raw if raw is not None else stream.get_data()).hexdigest()[:8]
+    return cache[sid]
+
+
 def extract(pdf_path, emoji_dir):
     import pdfplumber
 
     emoji_dir.mkdir(parents=True, exist_ok=True)
     pages_html = run_pdftotext(pdf_path)
     bubbles = []
+    keys = {}
     with pdfplumber.open(pdf_path) as pdf:
         if len(pdf.pages) != len(pages_html):
             fail("pdftotext saw {} pages but the PDF has {}.".format(len(pages_html), len(pdf.pages)))
@@ -89,7 +104,7 @@ def extract(pdf_path, emoji_dir):
                         if hit is None:
                             ch = "{E:?}"
                         else:
-                            key = hashlib.md5(hit["stream"].get_rawdata() or hit["stream"].get_data()).hexdigest()[:8]
+                            key = emoji_key(hit["stream"], keys)
                             emoji_png(hit, key, emoji_dir)
                             ch = "{E:" + key + "}"
                     if last_x1 is not None and c["x0"] - last_x1 > c["size"] * 0.2:
@@ -100,7 +115,8 @@ def extract(pdf_path, emoji_dir):
                     lines.append(cur)
                 text = unescape(" ".join(l.strip() for l in lines)).strip()
                 sizes = [c["size"] for c in chars if "Emoji" not in c["fontname"]]
-                side = "them" if x0 <= 45 else ("you" if x1 >= 560 else "center")
+                # Left edge = them, right edge = you, anything else (timestamps, notices) = center.
+                side = "them" if x0 <= 45 else ("you" if x1 >= 550 else "center")
                 bubbles.append({"page": pno, "page_height": round(page.height), "side": side, "text": text,
                                 "size": round(statistics.median(sizes), 1) if sizes else None,
                                 "x0": round(x0), "x1": round(x1), "top": round(top), "bottom": round(bottom)})
