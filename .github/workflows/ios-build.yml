@@ -1,0 +1,37 @@
+# Builds the iPhone app and runs its unit tests on a Mac in the cloud,
+# so app changes are checked even when nobody has Xcode open.
+name: iOS build
+
+on:
+  push:
+    paths: ["ios/**", ".github/workflows/ios-build.yml"]
+  pull_request:
+    paths: ["ios/**", ".github/workflows/ios-build.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Build app and share extension
+        run: |
+          xcodebuild build \
+            -project ios/ReplyAssistant.xcodeproj \
+            -scheme ReplyAssistant \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO | tail -n 60
+          exit ${PIPESTATUS[0]}
+      - name: Run unit tests
+        run: |
+          SIM=$(xcrun simctl list devices available | grep -m1 -o 'iPhone [^(]*' | sed 's/ *$//')
+          echo "Using simulator: $SIM"
+          xcodebuild test \
+            -project ios/ReplyAssistant.xcodeproj \
+            -scheme ReplyAssistant \
+            -destination "platform=iOS Simulator,name=$SIM" \
+            CODE_SIGNING_ALLOWED=NO | tail -n 80
+          exit ${PIPESTATUS[0]}
