@@ -1,0 +1,15 @@
+# Secrets: the OpenRouter key lives here on Vanessa's Mac only.
+.env
+.env.*
+
+# Other people's messages. Never commit, upload, or share.
+data/*
+!data/README.md
+results/
+*.pdf
+emoji/
+
+# Python / macOS noise
+__pycache__/
+*.pyc
+.DS_Store
