@@ -32,10 +32,11 @@ Monday morning (Pacific).
 ## Status (as of Nov 3, 2026)
 - Net new project. Scaffold is in place (engine/, api/, harness/, tools/, tests/, config.json);
   the reply engine itself is not built yet. Sprint 1 starts Nov 9.
-- tools/extract_pdf.py and tools/pdf_to_cases.py are in, with the review's six fixes and
-  unit tests. Not yet checked against one of her real Messages PDFs.
-- No test cases yet. NEXT: she exports 2 or more Messages threads to PDF; Claude turns them
-  into cases in data/conversations/.
+- tools/extract_pdf.py and tools/pdf_to_cases.py are tuned on 4 real Messages PDFs (Nov 3).
+- 43 test cases from 6 threads: jacob, avi, sebastian, brad (iMessage PDFs), jeff and
+  bumble-common (Bumble screenshots, transcribed by hand). Kept in data/conversations/
+  (git-ignored) and in the project's shared files under rizz-private/conversations/.
+- NEXT: build the reply engine (Sprint 1, Nov 9-22).
 - Wanted: more threads from different people, ideally inside Hinge/Bumble/Tinder.
 
 ## Rules
