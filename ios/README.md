@@ -1,0 +1,67 @@
+# iPhone app (v0)
+
+What it does today:
+
+- **In the app:** pick up to 5 screenshots of a chat (or paste one), and it shows 3 suggested replies. Tap a reply to copy it.
+- **From the share sheet:** take a screenshot, tap Share, choose **Reply Assistant**, and the replies appear right there.
+- It reads the screenshot on the phone with Apple's text recognition. Right-hand bubbles are "you", left-hand are "them", centered text (times, "Delivered") is skipped. If it gets one wrong, tap that message to switch who sent it.
+- **Replies are samples for now.** The app talks to the reply engine through one switch (`AppConfig.replyAPIURL` in `Shared/ReplyService.swift`). When the engine is hosted, that gets set and real replies appear.
+
+| Folder | What's in it |
+| --- | --- |
+| `ReplyAssistant/` | The app's screens |
+| `ShareExtension/` | The share-sheet item |
+| `Shared/` | Used by both: reading screenshots, talking to the backend, the replies screen |
+| `ReplyAssistantTests/` | Checks for the you/them/centered logic |
+
+## Put it on your iPhone (about 30 minutes the first time)
+
+You need a Mac, your iPhone, and its cable. A free Apple ID is enough for now; the paid developer account ($99/yr) is only needed for TestFlight in Sprint 3.
+
+**1. Install Xcode** (once)
+1. Open the **App Store** on your Mac, search **Xcode**, click **Get**. It's large; give it a while.
+2. Open Xcode. If it asks to install components or "iOS", click **Install** and wait.
+
+**2. Sign Xcode in to your Apple ID** (once)
+1. In the menu bar: **Xcode > Settings…** then the **Accounts** tab.
+2. Click **+** at the bottom left, choose **Apple ID**, sign in. Close the window.
+
+**3. Get the code**
+1. Go to github.com/vchev/rizz, click the green **Code** button, click **Download ZIP**.
+2. Double-click the ZIP in Downloads to unzip it.
+3. Open the unzipped folder, then the **ios** folder, and double-click **ReplyAssistant.xcodeproj**.
+
+**4. Tell Xcode who's signing the app** (once per download)
+1. In the left sidebar, click the very top item, **ReplyAssistant** (blue icon).
+2. In the middle area, under **TARGETS**, click **ReplyAssistant**, then the **Signing & Capabilities** tab.
+3. Next to **Team**, choose your name ("… (Personal Team)").
+4. Under **TARGETS**, click **ShareExtension** and set the same **Team**.
+5. If you see red text saying the bundle identifier isn't available, change `com.vchev` to something only you would use (for example `com.vanessa`) in **Bundle Identifier** for both targets. Keep the `.ShareExtension` ending on the second one.
+
+**5. Try it on the Mac first (optional)**
+1. At the top of the Xcode window, click the device name and pick an iPhone simulator, e.g. **iPhone 16**.
+2. Click the **▶** button (or press Cmd-R). A phone appears on screen.
+3. Drag a chat screenshot from Finder onto the simulated phone; it lands in its Photos. Then tap **Choose screenshots** in the app.
+
+**6. Put it on your iPhone**
+1. Plug the iPhone into the Mac. On the iPhone, tap **Trust** and enter your passcode.
+2. On the iPhone: **Settings > Privacy & Security > Developer Mode**, turn it on, and let it restart. (Only appears after step 1.)
+3. In Xcode, click the device name at the top and choose your iPhone. Click **▶**.
+4. The first time, the iPhone says the developer isn't trusted. On the iPhone: **Settings > General > VPN & Device Management**, tap your Apple ID, tap **Trust**. Click **▶** in Xcode again.
+
+**7. Add it to the share sheet** (once)
+1. Take a screenshot of a chat, tap the little preview, then tap the **Share** button.
+2. Scroll the row of app icons to the end, tap **More**, then **Edit**, and turn on **Reply Assistant**.
+
+With a free Apple ID the app stops opening after 7 days. Plug in and click **▶** again to refresh it. This goes away with TestFlight.
+
+## For Claude: regenerating the Xcode project
+
+The project file is generated. After adding or removing a Swift file:
+
+```
+gem install xcodeproj
+ruby ios/generate_project.rb
+```
+
+GitHub Actions (`.github/workflows/ios-build.yml`) builds the app and runs the tests on every push that touches `ios/`.
