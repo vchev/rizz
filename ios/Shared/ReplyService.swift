@@ -8,7 +8,14 @@ import Foundation
 protocol ReplyService {
     /// True when replies are placeholders, so the app can say so.
     var isSample: Bool { get }
-    func suggestReplies(for messages: [ChatMessage], platform: String) async throws -> [ReplySuggestion]
+    func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?) async throws -> [ReplySuggestion]
+}
+
+/// Optional nudge for a new set of replies.
+enum ReplyTone: String, Codable, CaseIterable, Identifiable {
+    case funnier, flirtier, shorter
+    var id: String { rawValue }
+    var label: String { rawValue.capitalized }
 }
 
 enum AppConfig {
@@ -32,15 +39,27 @@ enum ReplyServices {
 struct SampleReplyService: ReplyService {
     var isSample: Bool { true }
 
-    func suggestReplies(for messages: [ChatMessage], platform: String) async throws -> [ReplySuggestion] {
+    func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?) async throws -> [ReplySuggestion] {
         try await Task.sleep(nanoseconds: 700_000_000)
         let lastFromThem = messages.last(where: { $0.speaker == .them })?.text ?? ""
         let topic = lastFromThem.isEmpty ? "that" : "\u{201C}\(lastFromThem.prefix(40))\u{201D}"
-        let samples = [
-            "Sample reply: ok wait, tell me more about \(topic)",
-            "Sample reply: haha fair. what are you up to this week?",
-            "Sample reply: honestly same. coffee sometime?",
-        ]
+        let samples: [String]
+        switch tone {
+        case .funnier:
+            samples = ["Sample (funnier): ok but \(topic) is unhinged and I respect it",
+                       "Sample (funnier): bold of you to say that before our first date",
+                       "Sample (funnier): I'm telling my mom about this"]
+        case .flirtier:
+            samples = ["Sample (flirtier): you're kind of making it hard to play it cool",
+                       "Sample (flirtier): tell me more over a drink?",
+                       "Sample (flirtier): ok you're cute when you say things like that"]
+        case .shorter:
+            samples = ["Sample (shorter): haha yes", "Sample (shorter): tell me more", "Sample (shorter): coffee?"]
+        case nil:
+            samples = ["Sample reply: ok wait, tell me more about \(topic)",
+                       "Sample reply: haha fair. what are you up to this week?",
+                       "Sample reply: honestly same. coffee sometime?"]
+        }
         return samples.prefix(AppConfig.repliesPerRequest).map { ReplySuggestion(text: $0) }
     }
 }
@@ -50,7 +69,7 @@ struct SampleReplyService: ReplyService {
 /// Calls the hosted reply engine.
 ///
 /// Request (POST, JSON):
-///   {"platform": "imessage", "n": 3,
+///   {"platform": "imessage", "n": 3, "tone": "funnier",   // tone is optional
 ///    "messages": [{"speaker": "them", "text": "..."}, {"speaker": "you", "text": "..."}]}
 /// Response (JSON):
 ///   {"replies": [{"text": "..."}, ...]}
@@ -64,6 +83,7 @@ struct HTTPReplyService: ReplyService {
     struct RequestBody: Encodable {
         var platform: String
         var n: Int
+        var tone: ReplyTone?
         var messages: [ChatMessage]
     }
 
@@ -80,13 +100,13 @@ struct HTTPReplyService: ReplyService {
         }
     }
 
-    func suggestReplies(for messages: [ChatMessage], platform: String) async throws -> [ReplySuggestion] {
+    func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?) async throws -> [ReplySuggestion] {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(
-            RequestBody(platform: platform, n: AppConfig.repliesPerRequest, messages: messages))
+            RequestBody(platform: platform, n: AppConfig.repliesPerRequest, tone: tone, messages: messages))
 
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {

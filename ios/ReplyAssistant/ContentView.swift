@@ -41,41 +41,55 @@ struct ContentView: View {
     }
 
     private var startScreen: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            Image(systemName: "bubble.left.and.text.bubble.right")
-                .font(.system(size: 56))
-                .foregroundStyle(Color.accentColor)
-            Text("Get replies that sound like you")
-                .font(.title2.bold())
-                .multilineTextAlignment(.center)
-            Text("Pick a screenshot of the chat. Or, from Photos or the screenshot preview, tap Share and choose Reply Assistant.")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(spacing: 20) {
+                Image(systemName: "keyboard.badge.ellipsis")
+                    .font(.system(size: 52))
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.top, 24)
+                Text("Get replies right in your chats")
+                    .font(.title2.bold())
+                    .multilineTextAlignment(.center)
 
-            PhotosPicker(selection: $pickedItems, maxSelectionCount: 5,
-                         selectionBehavior: .ordered, matching: .images) {
-                Label("Choose screenshots", systemImage: "photo.on.rectangle")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+                KeyboardSetupCard()
 
-            Button {
-                if let image = UIPasteboard.general.image {
-                    Task { await model.read([image]) }
-                } else {
-                    pasteFailed = true
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("How to use it").font(.headline)
+                    Step(number: 1, text: "In Hinge, Messages or any chat, long-press their message and tap Copy. Or take a screenshot, tap it, and tap Copy.")
+                    Step(number: 2, text: "Tap the message box, then hold the 🌐 key and pick Reply Assistant.")
+                    Step(number: 3, text: "Tap Get replies from what I copied, then tap a reply to type it in.")
                 }
-            } label: {
-                Label("Paste screenshot", systemImage: "doc.on.clipboard")
-                    .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Divider()
+
+                Text("Or try it here with a screenshot")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    PhotosPicker(selection: $pickedItems, maxSelectionCount: 5,
+                                 selectionBehavior: .ordered, matching: .images) {
+                        Label("Choose", systemImage: "photo.on.rectangle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        if let image = UIPasteboard.general.image {
+                            Task { await model.read([image]) }
+                        } else {
+                            pasteFailed = true
+                        }
+                    } label: {
+                        Label("Paste", systemImage: "doc.on.clipboard")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .controlSize(.large)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            Spacer()
+            .padding(24)
         }
-        .padding(24)
     }
 
     private func loadImages(_ items: [PhotosPickerItem]) async -> [UIImage] {
@@ -87,6 +101,44 @@ struct ContentView: View {
             }
         }
         return images
+    }
+}
+
+private struct KeyboardSetupCard: View {
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Turn on the keyboard (once)").font(.headline)
+            Step(number: 1, text: "Tap Open Settings below, then Keyboards.")
+            Step(number: 2, text: "Turn on Reply Assistant.")
+            Step(number: 3, text: "Turn on Allow Full Access. iPhone shows a warning for every keyboard that goes online. We need it to read what you copy and fetch replies. Nothing you type is recorded or sent; only what you copied goes out, and only when you tap Get replies.")
+            Button {
+                if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+            } label: {
+                Label("Open Settings", systemImage: "gear")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+        }
+        .padding(16)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct Step: View {
+    var number: Int
+    var text: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text("\(number)")
+                .font(.footnote.bold())
+                .frame(width: 22, height: 22)
+                .background(Color.accentColor.opacity(0.15), in: Circle())
+            Text(text).font(.subheadline)
+        }
     }
 }
 

@@ -19,7 +19,12 @@ struct ScreenshotReader {
         return BubbleLayout.messages(from: lines)
     }
 
-    func recognizeLines(in image: UIImage) async throws -> [TextLine] {
+    /// Screenshots are downscaled to this width first. Text stays readable and
+    /// memory stays low enough for the keyboard, which iOS keeps on a tight budget.
+    static let maxWidth: CGFloat = 900
+
+    func recognizeLines(in original: UIImage) async throws -> [TextLine] {
+        let image = Self.downscaled(original)
         guard let cgImage = image.cgImage else { throw ScreenshotReaderError.unreadableImage }
         let orientation = CGImagePropertyOrientation(image.imageOrientation)
 
@@ -41,6 +46,19 @@ struct ScreenshotReader {
                 return TextLine(text: best.string, box: box)
             }
         }.value
+    }
+}
+
+extension ScreenshotReader {
+    static func downscaled(_ image: UIImage) -> UIImage {
+        let width = image.size.width
+        guard width > maxWidth else { return image }
+        let size = CGSize(width: maxWidth, height: (image.size.height * maxWidth / width).rounded())
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
     }
 }
 

@@ -51,14 +51,29 @@ final class ReplyFlowModel: ObservableObject {
         }
     }
 
-    func generate() async {
+    /// Text the user copied (usually their match's last message or messages).
+    func readText(_ copied: String) async {
+        let lines = copied
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && !BubbleLayout.isChrome($0) }
+        guard !lines.isEmpty else {
+            phase = .failed("What you copied is empty. Copy their message and try again.")
+            return
+        }
+        replies = []
+        messages = [ChatMessage(speaker: .them, text: lines.joined(separator: " "))]
+        await generate()
+    }
+
+    func generate(tone: ReplyTone? = nil) async {
         guard messages.contains(where: { $0.speaker == .them }) else {
             phase = .failed("Couldn't tell which messages are theirs. Tap a message to switch who said it, then tap Get new replies.")
             return
         }
         phase = .generating
         do {
-            replies = try await service.suggestReplies(for: messages, platform: "imessage")
+            replies = try await service.suggestReplies(for: messages, platform: "imessage", tone: tone)
             editedSinceReplies = false
             phase = .done
         } catch {
