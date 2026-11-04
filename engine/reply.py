@@ -2,7 +2,8 @@
 
     suggest_replies(messages, platform="imessage", n=3, tone=None, under_18=False)
 
-messages is a list of {"speaker": "you"|"them", "text": str}, oldest first.
+messages is a list of {"speaker": "you"|"them", "text": str, "reply_to": str (optional)},
+oldest first. reply_to is the start of an earlier message that this one quotes (a quoted reply).
 Nothing is stored: the chat is only sent to the model and then forgotten.
 """
 import json
@@ -39,7 +40,11 @@ def clean_messages(messages):
             raise BadRequest('each message needs speaker "you" or "them" and text')
         text = " ".join(text.split())
         if text:
-            out.append({"speaker": speaker, "text": text})
+            item = {"speaker": speaker, "text": text}
+            quoted = m.get("reply_to")
+            if isinstance(quoted, str) and quoted.strip():
+                item["reply_to"] = " ".join(quoted.split())[:300]
+            out.append(item)
     if not out:
         raise BadRequest("messages are all empty")
     out = out[-MAX_MESSAGES:]
@@ -128,15 +133,16 @@ def model_call(system, user, config):
 
 
 def suggest_replies(messages, platform="imessage", n=None, tone=None, under_18=False,
-                    call=None, config=None):
+                    call=None, config=None, replying_to=None):
     """Return a list of up to n reply strings. call(system, user, config) -> raw text can be
     swapped in for tests; by default it calls the configured model."""
     return [item["text"] for item in suggest_reply_items(
-        messages, platform=platform, n=n, tone=tone, under_18=under_18, call=call, config=config)]
+        messages, platform=platform, n=n, tone=tone, under_18=under_18, call=call, config=config,
+        replying_to=replying_to)]
 
 
 def suggest_reply_items(messages, platform="imessage", n=None, tone=None, under_18=False,
-                        call=None, config=None):
+                        call=None, config=None, replying_to=None):
     """Like suggest_replies, but each reply comes with its short label (or None):
     [{"text": str, "label": str or None}]."""
     config = config or settings.load_config()
@@ -147,7 +153,9 @@ def suggest_reply_items(messages, platform="imessage", n=None, tone=None, under_
         raise BadRequest("tone must be one of: " + ", ".join(TONES))
     msgs = clean_messages(messages)
     system = prompts.system_prompt(under_18=bool(under_18))
-    user = prompts.user_prompt(msgs, platform, n, tone)
+    if not isinstance(replying_to, str) or not replying_to.strip():
+        replying_to = None
+    user = prompts.user_prompt(msgs, platform, n, tone, replying_to=replying_to)
     call = call or model_call
     replies = pick_items(parse_items(call(system, user, config)), n)
     if len(replies) < n:   # one retry if the model came back short or malformed

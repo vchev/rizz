@@ -56,6 +56,21 @@ final class BubbleLayoutTests: XCTestCase {
         ])
         XCTAssertEqual(messages.map(\.text), ["Maybe. Not necessary. Sometimes it's just an experiment", "Ohh that's true!"])
         XCTAssertEqual(messages.map(\.speaker), [.them, .you])
+        // The quotes are kept aside, so replies know what each one answered.
+        XCTAssertEqual(messages.map(\.replyTo), ["So it's dependent on who updates thei...",
+                                                 "Maybe. Not necessary. Sometimes it's j…"])
+    }
+
+    func testReplyingToBarAboveTheTextBox() {
+        var name = line("Chai", x: 0.03, y: 0.535, w: 0.07, h: 0.012)
+        var quote = line("Btw! I'm sure you get this a lot but your have a really nic…", x: 0.03, y: 0.552, w: 0.82, h: 0.012)
+        var bubble = line("Ohh that's true!", x: 0.35, y: 0.45, w: 0.28)
+        name.onBubble = false
+        quote.onBubble = false
+        bubble.onBubble = true
+        XCTAssertEqual(BubbleLayout.replyingTo(in: [bubble, name, quote]),
+                       "Btw! I'm sure you get this a lot but your have a really nic…")
+        XCTAssertNil(BubbleLayout.replyingTo(in: [bubble]))
     }
 
     /// A screenshot someone sent inside the chat: its text is tiny and must
