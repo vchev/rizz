@@ -138,6 +138,27 @@ final class ChatStoreTests: XCTestCase {
         XCTAssertEqual(chat.messages.last?.text, "see you saturday then, can't wait")
     }
 
+    func testStartFreshUndoesAWrongJoin() {
+        let store = ChatStore(url: url)
+        let shared = "maybe, what did you have in mind for the weekend exactly"
+        let first = store.remember([m(.them, "are you free this weekend"), m(.you, shared)])
+        let joined = store.remember([m(.you, shared), m(.them, "a totally different person here")])
+        XCTAssertEqual(joined.id, first.id)
+        let fresh = store.startFresh(joined.id)
+        XCTAssertEqual(fresh?.messages.count, 2)
+        XCTAssertNotEqual(fresh?.id, first.id)
+        XCTAssertEqual(store.chat(first.id)?.messages.count, 2, "The old chat goes back to how it was")
+    }
+
+    func testOneSharedLineOutOfManyIsNotTheSameChat() {
+        let store = ChatStore(url: url)
+        store.remember([m(.them, "haha I haven't updated my app in months, maybe that's why it's still there"), m(.you, "wait really")])
+        let read = [m(.them, "haha I haven't updated my app in months, maybe that's why it's still there")] +
+            (1...7).map { m(.them, "a new message from someone else, number \($0)") }
+        store.remember(read)
+        XCTAssertEqual(store.chats.count, 2)
+    }
+
     func testAKeyKeepsEachMessagesChatSeparate() {
         let store = ChatStore(url: url)
         let a = store.remember([m(.them, "how was the hike with your sister")], key: "messages:1")

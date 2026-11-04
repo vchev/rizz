@@ -66,6 +66,19 @@ final class ReplyFlowModel: ObservableObject {
         latestStart = chat.latest?.lowerBound
     }
 
+    /// Whether "Wrong chat? Start fresh" can split off the latest screenshot.
+    var canStartFresh: Bool { earlierCount > 0 && chatID != nil }
+
+    /// The latest screenshot was joined to the wrong saved chat: keep it on its own.
+    func startFresh() {
+        guard let store, let chatID, let fresh = store.startFresh(chatID) else { return }
+        self.chatID = fresh.id
+        messages = fresh.messages
+        readCount = fresh.messages.count
+        latestStart = nil
+        editedSinceReplies = true
+    }
+
     private func saveEdits() {
         guard let store, let chatID else { return }
         store.update(chatID, messages: messages)

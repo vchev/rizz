@@ -54,8 +54,10 @@ final class ChatStore {
     func remember(_ read: [ChatMessage], key: String? = nil, now: Date = Date()) -> SavedChat {
         chats.removeAll { now.timeIntervalSince($0.updated) > Self.keepFor }
         var chat: SavedChat
+        lastJoin = nil
         if let index = bestMatch(for: read, key: key) {
             chat = chats.remove(at: index)
+            lastJoin = (chat, read)
             let joined = Self.join(chat.messages, read)
             chat.messages = joined.messages
             chat.latest = joined.latest
@@ -84,6 +86,29 @@ final class ChatStore {
 
     func chat(_ id: String) -> SavedChat? { chats.first { $0.id == id } }
 
+    /// The chat as it was before the last `remember` joined a read into it.
+    private var lastJoin: (before: SavedChat, read: [ChatMessage])?
+
+    /// "Wrong chat? Start fresh": undoes the last join (the saved chat goes back
+    /// to how it was) and keeps the latest read as a chat of its own.
+    @discardableResult
+    func startFresh(_ id: String, now: Date = Date()) -> SavedChat? {
+        guard let join = lastJoin, join.before.id == id,
+              let i = chats.firstIndex(where: { $0.id == id }) else { return nil }
+        lastJoin = nil
+        let isKeyed = id.hasPrefix("messages:")
+        if isKeyed {
+            chats.remove(at: i)            // a keyed chat can't be split; it's just replaced
+        } else {
+            chats[i] = join.before
+        }
+        let fresh = SavedChat(id: isKeyed ? id : UUID().uuidString, messages: join.read, updated: now,
+                              latest: 0..<join.read.count)
+        chats.insert(fresh, at: 0)
+        save()
+        return fresh
+    }
+
     func forgetAll() {
         chats = []
         try? FileManager.default.removeItem(at: url)
@@ -104,7 +129,9 @@ final class ChatStore {
     static func belongTogether(_ saved: [ChatMessage], _ read: [ChatMessage]) -> Bool {
         let shared = matches(saved, read).map { read[$0.read] }
         let letters = shared.reduce(0) { $0 + Transcript.normalized($1.text).count }
-        return (shared.count >= 2 && letters >= 20) || letters >= 25
+        // A real overlap is a good part of the new screenshot, not one stray line.
+        guard shared.count * 4 >= min(read.count, 12) else { return false }
+        return (shared.count >= 2 && letters >= 20) || letters >= 40
     }
 
     /// Pairs of (saved index, read index) for the same message, in order: the

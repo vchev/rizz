@@ -76,6 +76,13 @@ struct ChatReview: View {
                     if let last = model.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
                 }
             }
+            if model.canStartFresh {
+                Button("Wrong chat? Start fresh with just this screenshot") {
+                    model.startFresh()
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.coax)
+            }
             Button {
                 onRegenerate()
                 Task { await model.generate() }
