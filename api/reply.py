@@ -2,7 +2,7 @@
 
     POST /api/reply   {"platform": "imessage", "n": 3, "tone": "funnier", "under_18": false,
                        "messages": [{"speaker": "them", "text": "..."}]}
-    ->  200 {"replies": [{"text": "..."}], "prompt_version": 1}
+    ->  200 {"replies": [{"text": "...", "label": "playful"}], "prompt_version": 6}   (label may be missing)
 
     GET  /api/reply   -> {"ok": true}   (health check, no model call)
 
@@ -38,7 +38,7 @@ def handle(body_bytes, token_header=None, call=None):
     if not isinstance(data, dict):
         return 400, {"error": "Body must be a JSON object"}
     try:
-        texts = reply.suggest_replies(
+        items = reply.suggest_reply_items(
             data.get("messages"),
             platform=data.get("platform") or "imessage",
             n=data.get("n"),
@@ -51,7 +51,8 @@ def handle(body_bytes, token_header=None, call=None):
     except (openrouter.ModelError, RuntimeError) as e:
         print("reply failed: %s" % e, file=sys.stderr)   # error text only, never the chat
         return 502, {"error": "Couldn't get replies right now. Try again."}
-    return 200, {"replies": [{"text": t} for t in texts], "prompt_version": prompts.PROMPT_VERSION}
+    replies = [{"text": i["text"], "label": i["label"]} if i["label"] else {"text": i["text"]} for i in items]
+    return 200, {"replies": replies, "prompt_version": prompts.PROMPT_VERSION}
 
 
 class handler(BaseHTTPRequestHandler):  # Vercel looks for this exact name

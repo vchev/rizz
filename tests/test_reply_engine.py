@@ -46,6 +46,18 @@ class Parsing(unittest.TestCase):
                          ["wait really?", "coffee?"])
 
 
+    def test_labels_kept_and_cleaned(self):
+        raw = ('{"replies": [{"text": "a", "label": "Playful"}, {"text": "b", "label": "way too long a label here"},'
+               ' {"text": "c"}, "d", {"text": "e", "label": "<b>x</b>"}]}')
+        self.assertEqual([(i["text"], i["label"]) for i in reply.parse_items(raw)],
+                         [("a", "playful"), ("b", None), ("c", None), ("d", None), ("e", None)])
+
+    def test_pick_items_keeps_labels(self):
+        items = [{"text": "wait really?", "label": "curious"}, {"text": "Wait, really", "label": "x"},
+                 {"text": "coffee?", "label": "direct"}]
+        self.assertEqual(reply.pick_items(items, 3), [items[0], items[2]])
+
+
 class Messages(unittest.TestCase):
     def test_accepts_from_and_speaker(self):
         out = reply.clean_messages([{"from": "them", "text": " hi  there "}, {"speaker": "you", "text": "hey"}])
@@ -162,7 +174,8 @@ class Api(unittest.TestCase):
         status, out = api.handle(self.body(tone="shorter"), call=reply.stand_in_model)
         self.assertEqual(status, 200)
         self.assertEqual(len(out["replies"]), 3)
-        self.assertTrue(all(set(r) == {"text"} for r in out["replies"]))
+        self.assertTrue(all(set(r) <= {"text", "label"} and "text" in r for r in out["replies"]))
+        self.assertEqual([r.get("label") for r in out["replies"]], ["curious", "playful", "forward"])
 
     def test_bad_json_and_bad_messages(self):
         self.assertEqual(api.handle(b"nope")[0], 400)

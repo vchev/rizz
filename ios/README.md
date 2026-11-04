@@ -2,7 +2,7 @@
 
 What it does today:
 
-- **The keyboard (main way to use it):** copy their message (or a screenshot of the chat), switch to the Coax keyboard, tap **Get replies from what I copied**, and tap a reply to type it into the message box. Funnier / Flirtier / Shorter redo the replies. Typing works without Full Access; replies need it.
+- **The keyboard (main way to use it):** tap the message box and switch to the Coax keyboard. While it's open, take a screenshot of the chat and Coax reads it by itself (plus the screenshots before it, if you picked 2 or 3), then shows 3 replies with a small tag each ("playful", "direct"). Tap one to type it into the message box. The blue **Last N** button reads your latest screenshots on demand, the clipboard button replies to what you copied, and the keyboard icon goes back to typing. Funnier / Flirtier / Shorter redo the replies. Typing works without Full Access; replies need it.
 - **In the app:** pick up to 5 screenshots of a chat (or paste one), and it shows 3 suggested replies. Tap a reply to copy it.
 - **From the share sheet:** take a screenshot, tap Share, choose **Coax**, and the replies appear right there.
 - It reads the screenshot on the phone with Apple's text recognition. Right-hand bubbles are "you", left-hand are "them", centered text (times, "Delivered") is skipped. If it gets one wrong, tap that message to switch who sent it.
