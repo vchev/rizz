@@ -27,6 +27,7 @@
 		329529BC03D7D3574342F3C8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 821F987B207995500CFC11F4 /* Foundation.framework */; };
 		338BEF96341C8C1CB3ABDAB7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 821F987B207995500CFC11F4 /* Foundation.framework */; };
 		357BE1FF5FC2D0CB9BD96565 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 656A31289B3961AD0A29FDB4 /* Conversation.swift */; };
+		3B5B8BD7161B3A922E1C4429 /* GetRepliesIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33126145B1CE1DB7FC2C7A2E /* GetRepliesIntent.swift */; };
 		42D76E706826073F295CF443 /* ScreenshotReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40BB4AAA88EAFB2C3D6398BE /* ScreenshotReader.swift */; };
 		7D5E6BEFBB3EA34890A593A5 /* ReplyFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70394B7D0412559853E59D0 /* ReplyFlowView.swift */; };
 		83B5276C21E4D10E800B4895 /* ReplyFlowModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAEC7CF1D8175A06A1379AAD /* ReplyFlowModel.swift */; };
@@ -98,6 +99,7 @@
 		1E8B2DB7BFA25917DC9F00B2 /* ShareViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		22F697083E3EABDB95DCDFA1 /* KeyboardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeyboardView.swift; sourceTree = "<group>"; };
 		2446E87F98D94ED1EFE6D41B /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		33126145B1CE1DB7FC2C7A2E /* GetRepliesIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GetRepliesIntent.swift; sourceTree = "<group>"; };
 		40B11C9653C93CCB015E32F9 /* Keyboard.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = Keyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		40BB4AAA88EAFB2C3D6398BE /* ScreenshotReader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenshotReader.swift; sourceTree = "<group>"; };
 		467BF8727A10ACF9D3DD5644 /* AppFlowUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppFlowUITests.swift; sourceTree = "<group>"; };
@@ -197,6 +199,7 @@
 			isa = PBXGroup;
 			children = (
 				01E286E311EBFDEF1A025E5F /* ContentView.swift */,
+				33126145B1CE1DB7FC2C7A2E /* GetRepliesIntent.swift */,
 				C4713DE08631E173CCCE404C /* ReplyAssistantApp.swift */,
 				2446E87F98D94ED1EFE6D41B /* Assets.xcassets */,
 			);
@@ -460,6 +463,7 @@
 				236302CAAB9E4A9D826D0229 /* ReplyService.swift in Sources */,
 				2D5EE1B3DFE3E2772D7392AD /* ScreenshotReader.swift in Sources */,
 				0A5B6AF91A72080E4A3ABBCC /* ContentView.swift in Sources */,
+				3B5B8BD7161B3A922E1C4429 /* GetRepliesIntent.swift in Sources */,
 				26D83777E4F295FC2F4427E7 /* ReplyAssistantApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
