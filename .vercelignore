@@ -1,0 +1,9 @@
+.env
+.env.*
+data/
+results/
+ios/
+tools/
+tests/
+harness/
+*.pdf

@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/reply.py": {
+      "includeFiles": "{engine/**,config.json}",
+      "maxDuration": 30
+    }
+  }
+}
