@@ -55,6 +55,21 @@ final class OnboardingUITests: XCTestCase {
         pickAge(app, "I'm under 16")
         XCTAssertTrue(app.staticTexts["Coax is for people 16 and older"].waitForExistence(timeout: 5))
         save(app, "onboarding-under-16")
+
+        // Test builds can start over from here.
+        app.buttons["Start over (test builds only)"].tap()
+        XCTAssertTrue(app.buttons["Get started"].waitForExistence(timeout: 5))
+    }
+
+    func testSetupCanBeReplayedFromTheMainScreen() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting"]   // already set up: main screen
+        app.launch()
+        let replay = app.buttons["Show setup again"]
+        XCTAssertTrue(replay.waitForExistence(timeout: 5))
+        replay.tap()
+        XCTAssertTrue(app.buttons["Get started"].waitForExistence(timeout: 5))
+        save(app, "onboarding-replayed")
     }
 
     func testSixteenOrSeventeenAsksForParentOK() throws {

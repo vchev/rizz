@@ -121,7 +121,14 @@ struct OnboardingView: View {
         StepPage(icon: "hand.raised",
                  title: "Coax is for people 16 and older",
                  subtitle: "Thanks for checking it out. Coax will be here when you're 16.") {
-            EmptyView()
+            #if DEBUG
+            // Test builds only, so you can try the other paths without deleting the app.
+            Button("Start over (test builds only)") {
+                AgeSettings.reset()
+                go(.welcome)
+            }
+            .buttonStyle(SecondaryButton())
+            #endif
         }
         .accessibilityIdentifier("turnedAway")
     }

@@ -7,6 +7,8 @@ struct ContentView: View {
     @StateObject private var model = ReplyFlowModel(store: ChatStore.forUse)
     @State private var pickedItems: [PhotosPickerItem] = []
     @State private var pasteFailed = false
+    /// Test builds only: runs first-time setup again (see ReplyAssistantApp).
+    var onReplaySetup: (() -> Void)? = nil
 
     var body: some View {
         NavigationStack {
@@ -19,6 +21,13 @@ struct ContentView: View {
             }
             .navigationTitle("Coax")
             .toolbar {
+                #if DEBUG
+                if model.phase == .waiting, let onReplaySetup {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Show setup again") { onReplaySetup() }
+                    }
+                }
+                #endif
                 if model.phase != .waiting {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("New") {

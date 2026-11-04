@@ -19,7 +19,10 @@ struct ReplyAssistantApp: App {
     var body: some Scene {
         WindowGroup {
             if onboarded {
-                ContentView()
+                ContentView(onReplaySetup: {
+                    AgeSettings.reset()
+                    onboarded = false
+                })
             } else {
                 OnboardingView { onboarded = true }
             }
