@@ -1,6 +1,6 @@
 """Prompts for the reply engine. Bump PROMPT_VERSION whenever a prompt changes."""
 
-PROMPT_VERSION = 7
+PROMPT_VERSION = 8
 
 SYSTEM_PROMPT = """You write the user's next text message in a dating conversation.
 
@@ -70,6 +70,50 @@ TONE_RULES = {
     "shorter": "This time make every reply short: a few words, at most one short sentence.",
 }
 
+# The user's voice profile (optional, sent by the app). Each slider is 0..1; the middle third
+# says nothing, so a half-way answer never pushes the replies either way.
+VOICE_SLIDERS = {
+    "length": ("very short texts, often just a few words", "longer texts, often a few sentences"),
+    "caps": ("mostly lowercase, light on punctuation", "proper capital letters and punctuation"),
+    "humour": ("sincere and straightforward", "dry, teasing humour"),
+    "emoji": ("almost never uses emoji", "uses emoji often"),
+    "forward": ("plays it cool, never over-eager", "says what they feel, openly keen"),
+}
+MAX_VOICE_EXAMPLES = 8
+
+
+def voice_lines(voice):
+    """Plain-word lines describing how the user texts, from the app's voice profile.
+    Returns [] when there is nothing useful, so the prompt stays exactly as before."""
+    if not isinstance(voice, dict):
+        return []
+    traits = []
+    for key, (low, high) in VOICE_SLIDERS.items():
+        value = voice.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        if value <= 1 / 3:
+            traits.append(low)
+        elif value >= 2 / 3:
+            traits.append(high)
+    examples = []
+    for text in voice.get("examples") or []:
+        if isinstance(text, str):
+            text = " ".join(text.split())[:200]
+            if text and text not in examples:
+                examples.append(text)
+    examples = examples[:MAX_VOICE_EXAMPLES]
+    if not traits and not examples:
+        return []
+    lines = ["How the user texts (their voice profile; if this chat shows their style, the chat wins):"]
+    lines += ["- %s" % t for t in traits]
+    if examples:
+        lines.append("Texts the user wrote in other chats (copy the style only, never the content):")
+        lines += ["ME: %s" % t for t in examples]
+    lines.append("")
+    return lines
+
+
 PLATFORM_NAMES = {
     "imessage": "iMessage",
     "hinge": "Hinge",
@@ -117,7 +161,7 @@ def unanswered_match_messages(messages):
     return [m["text"] for k, m in enumerate(messages) if m["speaker"] == "them" and k not in answered]
 
 
-def user_prompt(messages, platform, n, tone=None, replying_to=None):
+def user_prompt(messages, platform, n, tone=None, replying_to=None, voice=None):
     """messages: list of {"speaker": "you"|"them", "text": str, "reply_to": str?}, oldest first."""
     app = PLATFORM_NAMES.get((platform or "").lower(), "a dating app")
     lines = []
@@ -130,6 +174,7 @@ def user_prompt(messages, platform, n, tone=None, replying_to=None):
             lines.append("%s: %s" % (who, m["text"]))
     parts = [
         "App: %s" % app,
+    ] + voice_lines(voice) + [
         "Conversation so far (oldest first; ME is the user; \"quoting\" means a reply to that earlier message):",
         "\n".join(lines),
         "",

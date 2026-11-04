@@ -266,3 +266,51 @@ class Harness(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VoiceProfile(unittest.TestCase):
+    MSGS = [{"speaker": "them", "text": "how was your week"}]
+
+    def test_no_voice_keeps_prompt_unchanged(self):
+        base = prompts.user_prompt(self.MSGS, "hinge", 3)
+        self.assertEqual(base, prompts.user_prompt(self.MSGS, "hinge", 3, voice=None))
+        self.assertEqual(base, prompts.user_prompt(self.MSGS, "hinge", 3, voice={}))
+        # all sliders in the middle and no examples: nothing to say, prompt unchanged
+        middle = {k: 0.5 for k in prompts.VOICE_SLIDERS}
+        self.assertEqual(base, prompts.user_prompt(self.MSGS, "hinge", 3, voice=middle))
+
+    def test_sliders_become_plain_words(self):
+        text = prompts.user_prompt(self.MSGS, "hinge", 3, voice={
+            "length": 0.1, "caps": 0.0, "humour": 0.9, "emoji": 0.5, "forward": True})
+        self.assertIn("very short texts", text)
+        self.assertIn("mostly lowercase", text)
+        self.assertIn("dry, teasing humour", text)
+        self.assertNotIn("emoji", text)          # middle value says nothing
+        self.assertNotIn("openly keen", text)    # booleans are ignored
+        self.assertLess(text.index("voice profile"), text.index("Conversation so far"))
+
+    def test_examples_trimmed_and_deduped(self):
+        examples = ["haha wait  that's impressive", "haha wait that's impressive"] + ["x%d" % i for i in range(20)]
+        lines = prompts.voice_lines({"examples": examples + [5, None]})
+        mine = [l for l in lines if l.startswith("ME: ")]
+        self.assertEqual(len(mine), prompts.MAX_VOICE_EXAMPLES)
+        self.assertEqual(mine[0], "ME: haha wait that's impressive")
+        self.assertIn("never the content", "\n".join(lines))
+
+    def test_voice_reaches_the_model_through_the_api(self):
+        seen = {}
+
+        def fake(system, user, config):
+            seen["user"] = user
+            return reply.stand_in_model(system, user, config)
+
+        body = json.dumps({"messages": self.MSGS, "voice": {"length": 0.0, "examples": ["ok fair"]}})
+        status, out = api.handle(body.encode(), call=fake)
+        self.assertEqual(status, 200)
+        self.assertIn("ME: ok fair", seen["user"])
+        self.assertIn("very short texts", seen["user"])
+
+    def test_bad_voice_is_a_400(self):
+        body = json.dumps({"messages": self.MSGS, "voice": "short"})
+        status, out = api.handle(body.encode(), call=reply.stand_in_model)
+        self.assertEqual(status, 400)

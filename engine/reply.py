@@ -1,10 +1,12 @@
 """Reply engine: conversation in, suggested replies out.
 
-    suggest_replies(messages, platform="imessage", n=3, tone=None, under_18=False)
+    suggest_replies(messages, platform="imessage", n=3, tone=None, under_18=False, voice=None)
 
 messages is a list of {"speaker": "you"|"them", "text": str, "reply_to": str (optional)},
 oldest first. reply_to is the start of an earlier message that this one quotes (a quoted reply).
-Nothing is stored: the chat is only sent to the model and then forgotten.
+voice is the user's optional voice profile from the app: sliders 0..1 (length, caps, humour,
+emoji, forward) and up to 8 "examples" of their own texts from other chats. Without it the
+prompt is exactly as before. Nothing is stored: the chat is only sent to the model and then forgotten.
 """
 import json
 import re
@@ -133,16 +135,16 @@ def model_call(system, user, config):
 
 
 def suggest_replies(messages, platform="imessage", n=None, tone=None, under_18=False,
-                    call=None, config=None, replying_to=None):
+                    call=None, config=None, replying_to=None, voice=None):
     """Return a list of up to n reply strings. call(system, user, config) -> raw text can be
     swapped in for tests; by default it calls the configured model."""
     return [item["text"] for item in suggest_reply_items(
         messages, platform=platform, n=n, tone=tone, under_18=under_18, call=call, config=config,
-        replying_to=replying_to)]
+        replying_to=replying_to, voice=voice)]
 
 
 def suggest_reply_items(messages, platform="imessage", n=None, tone=None, under_18=False,
-                        call=None, config=None, replying_to=None):
+                        call=None, config=None, replying_to=None, voice=None):
     """Like suggest_replies, but each reply comes with its short label (or None):
     [{"text": str, "label": str or None}]."""
     config = config or settings.load_config()
@@ -155,7 +157,9 @@ def suggest_reply_items(messages, platform="imessage", n=None, tone=None, under_
     system = prompts.system_prompt(under_18=bool(under_18))
     if not isinstance(replying_to, str) or not replying_to.strip():
         replying_to = None
-    user = prompts.user_prompt(msgs, platform, n, tone, replying_to=replying_to)
+    if voice is not None and not isinstance(voice, dict):
+        raise BadRequest("voice must be an object")
+    user = prompts.user_prompt(msgs, platform, n, tone, replying_to=replying_to, voice=voice)
     call = call or model_call
     replies = pick_items(parse_items(call(system, user, config)), n)
     if len(replies) < n:   # one retry if the model came back short or malformed
