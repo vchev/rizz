@@ -133,11 +133,10 @@ enum Transcript {
     }
 
     static func normalized(_ s: String) -> String {
-        s.lowercased()
-            .map { $0.isLetter || $0.isNumber ? $0 : " " }
-            .split(separator: " ", omittingEmptySubsequences: true)
-            .map(String.init)
-            .joined(separator: " ")
+        let cleaned = String(s.lowercased().map { (c: Character) -> Character in
+            c.isLetter || c.isNumber ? c : " "
+        })
+        return cleaned.split(separator: " ").joined(separator: " ")
     }
 
     /// Levenshtein distance, giving up (returning limit + 1) once it's over `limit`.
