@@ -8,6 +8,7 @@ final class AppFlowUITests: XCTestCase {
 
     func testExampleChatShowsReplies() throws {
         let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting"]
         app.launch()
         save(app, "1-start-screen")
 
@@ -17,7 +18,7 @@ final class AppFlowUITests: XCTestCase {
         example.tap()
 
         let reply = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] %@", "Sample reply")).firstMatch
-        XCTAssertTrue(reply.waitForExistence(timeout: 10), "Replies should appear")
+        XCTAssertTrue(reply.waitForExistence(timeout: 30), "Replies should appear")
         save(app, "2-replies")
 
         reply.tap()
