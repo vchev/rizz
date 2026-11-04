@@ -117,7 +117,7 @@ enum RecentScreenshots {
 
 /// Watches for a screenshot taken while the Coax keyboard is open, so it can
 /// read it without a tap. Only looks at screenshots newer than `start()`.
-/// Photos tells us about changes; a light check every 1.5 seconds backs that
+/// Photos tells us about changes; a light check every half second backs that
 /// up, in case iOS doesn't send change notices to the keyboard. The Photos
 /// lookups run off the main thread and pause while the user is typing, so
 /// they never slow the keys down.
@@ -153,7 +153,7 @@ final class ScreenshotWatcher: NSObject, PHPhotoLibraryChangeObserver {
         }
         PHPhotoLibrary.shared().register(self)
         registered = true
-        timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.check() }
         }
     }

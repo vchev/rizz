@@ -97,6 +97,7 @@ final class KeyboardViewController: UIInputViewController {
             state.watching = false
             return
         }
+        model.service.warmUp()   // wake the reply server while the screenshot is being taken
         watcher.start()
         state.watching = RecentScreenshots.newest() != nil
     }

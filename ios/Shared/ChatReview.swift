@@ -50,7 +50,7 @@ struct ChatReview: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            Text("Tap a message to switch who sent it")
+            Text(["Tap a message to switch who sent it", model.timing].compactMap { $0 }.joined(separator: " · "))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             ScrollViewReader { proxy in
