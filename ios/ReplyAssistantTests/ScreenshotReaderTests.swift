@@ -112,7 +112,7 @@ final class ScreenshotReaderTests: XCTestCase {
         let rows: [(String, Bool, CGFloat)] = [   // text, from you, bubble width share
             ("I played pickleball 3 times", true, 0.78),
             ("Are you really good or what", true, 0.77),
-            ("Haha I'm pretty good but you should find out", false, 0.66),
+            ("Haha I'm pretty good, find out", false, 0.66),
             ("When are you usually free", false, 0.68),
         ]
         let image = UIGraphicsImageRenderer(size: size, format: format).image { ctx in

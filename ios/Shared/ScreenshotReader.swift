@@ -151,6 +151,11 @@ struct PixelGrid {
             return edge
         }
         let gap: CGFloat = 0.012
+        // Both sides must start on bubble colour, not the screen background.
+        let edges = [color(0.004, y), color(0.996, y)]
+        for x in [box.minX - gap, box.maxX + gap] where edges.contains(where: { Self.distance(color(x, y), $0) <= 0.03 }) {
+            return nil
+        }
         let left = walk(from: box.minX - gap, by: -step)
         let right = walk(from: box.maxX + gap, by: step)
         guard right > left else { return nil }
