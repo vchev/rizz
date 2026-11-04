@@ -125,6 +125,9 @@ struct HTTPReplyService: ReplyService {
 
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            if http.statusCode == 401 {
+                throw ServiceError.server("This copy of Coax is missing its app password (ios/Secrets.xcconfig). Add it, then Clean Build Folder and run again.")
+            }
             if let body = try? JSONDecoder().decode(ErrorBody.self, from: data), !body.error.isEmpty {
                 throw ServiceError.server(body.error)
             }
