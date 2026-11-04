@@ -3,4 +3,8 @@
 //   COAX_APP_TOKEN = <value of COAX_APP_TOKEN in Vercel>
 // Without it the app still builds, but the reply server refuses requests.
 COAX_APP_TOKEN =
+// Your Apple signing team, also set in Secrets.xcconfig on your Mac:
+//   DEVELOPMENT_TEAM = <10-character team ID>
+// Set here instead of in Xcode, so pulling new code never resets it.
+DEVELOPMENT_TEAM =
 #include? "Secrets.xcconfig"
