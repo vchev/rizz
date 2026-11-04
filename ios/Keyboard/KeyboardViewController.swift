@@ -10,6 +10,10 @@ final class KeyboardState: ObservableObject {
     @Published var panel: Panel = .keys
     @Published var shifted = true
     @Published var showingSymbols = false
+    /// True while the keyboard is watching for a new screenshot to read by itself.
+    @Published var watching = false
+    /// True when the current read was started by a new screenshot, not a tap.
+    @Published var autoRead = false
     /// How many recent screenshots to read (1 to 3). Remembered between uses;
     /// this number is the only thing the keyboard saves.
     @Published var screenshotCount: Int = {
@@ -31,15 +35,17 @@ final class KeyboardViewController: UIInputViewController {
 
     private let model = ReplyFlowModel()
     private let state = KeyboardState()
+    private let watcher = ScreenshotWatcher()
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        watcher.onNewScreenshot = { [weak self] in self?.newScreenshotTaken() }
 
         let root = KeyboardView(
             model: model,
             state: state,
             actions: KeyboardActions(
-                getRepliesFromScreenshots: { [weak self] in self?.readScreenshots() },
+                getRepliesFromScreenshots: { [weak self] in self?.readScreenshots(auto: false) },
                 getReplies: { [weak self] in self?.readClipboard() },
                 insert: { [weak self] reply in self?.insert(reply) },
                 type: { [weak self] text in self?.textDocumentProxy.insertText(text) },
@@ -69,6 +75,32 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillAppear(animated)
         refreshState()
         showShortcutReplies()
+        startWatching()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        watcher.stop()
+        state.watching = false
+    }
+
+    /// While the keyboard is open, a new screenshot is read without a tap.
+    /// Needs Full Access (for the internet) and the app's Photos access. The
+    /// keyboard may misreport Photos access, so seeing a screenshot is the test.
+    private func startWatching() {
+        guard hasFullAccess else {
+            state.watching = false
+            return
+        }
+        watcher.start()
+        state.watching = RecentScreenshots.newest() != nil
+    }
+
+    private func newScreenshotTaken() {
+        refreshState()
+        guard hasFullAccess, !model.isBusy else { return }
+        state.panel = .replies
+        readScreenshots(auto: true)
     }
 
     /// Replies the Back Tap shortcut left for us: show them straight away.
@@ -95,10 +127,11 @@ final class KeyboardViewController: UIInputViewController {
         state.shifted = false
     }
 
-    private func readScreenshots() {
+    private func readScreenshots(auto: Bool) {
         refreshState()
         guard hasFullAccess else { return }
         state.insertedID = nil
+        state.autoRead = auto
         let count = state.screenshotCount
         Task { @MainActor in await model.readLatestScreenshots(count: count) }
     }
@@ -108,6 +141,7 @@ final class KeyboardViewController: UIInputViewController {
         refreshState()
         guard hasFullAccess else { return }
         state.insertedID = nil
+        state.autoRead = false
         let pasteboard = UIPasteboard.general
         Task { @MainActor in
             if pasteboard.hasImages, let image = pasteboard.image {

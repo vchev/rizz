@@ -2,7 +2,8 @@
 
 What it does today:
 
-- **The keyboard (main way to use it):** copy their message (or a screenshot of the chat), switch to the Coax keyboard, tap **Get replies from what I copied**, and tap a reply to type it into the message box. Funnier / Flirtier / Shorter redo the replies. Typing works without Full Access; replies need it.
+- **The keyboard (main way to use it):** tap the message box and switch to the Coax keyboard. While it's open, take a screenshot of the chat and Coax reads it by itself (plus the screenshots before it, if you picked 2 or 3), then shows 3 replies with a small tag each ("playful", "direct"). Tap one to type it into the message box. The blue **Last N** button reads your latest screenshots on demand, the clipboard button replies to what you copied, and the keyboard icon goes back to typing. Funnier / Flirtier / Shorter redo the replies. Typing works without Full Access; replies need it.
+- **In Messages:** tap **+** next to the text box, then **Coax** (under More if you don't see it). It waits for a screenshot of the chat, reads it, and shows 3 replies. Tap one and it lands in the Messages text box, ready to send. No Full Access needed.
 - **In the app:** pick up to 5 screenshots of a chat (or paste one), and it shows 3 suggested replies. Tap a reply to copy it.
 - **From the share sheet:** take a screenshot, tap Share, choose **Coax**, and the replies appear right there.
 - It reads the screenshot on the phone with Apple's text recognition. Right-hand bubbles are "you", left-hand are "them", centered text (times, "Delivered") is skipped. If it gets one wrong, tap that message to switch who sent it.
@@ -37,7 +38,7 @@ You need a Mac, your iPhone, and its cable. A free Apple ID is enough for now; t
 1. In the left sidebar, click the very top item, **ReplyAssistant** (blue icon).
 2. In the middle area, under **TARGETS**, click **ReplyAssistant**, then the **Signing & Capabilities** tab.
 3. Next to **Team**, choose your name ("… (Personal Team)").
-4. Under **TARGETS**, click **ShareExtension** and set the same **Team**. Do the same for **Keyboard**.
+4. Under **TARGETS**, click **ShareExtension** and set the same **Team**. Do the same for **Keyboard** and **MessagesExtension**.
 5. If you see red text saying the bundle identifier isn't available, change `com.vchev` to something only you would use (for example `com.vanessa`) in **Bundle Identifier** for all three targets. Keep the `.ShareExtension` and `.Keyboard` endings.
 
 **5. Try it on the Mac first (optional)**

@@ -27,6 +27,7 @@ shared_group = add_group(project, 'Shared')
 app_group = add_group(project, 'ReplyAssistant')
 ext_group = add_group(project, 'ShareExtension')
 kbd_group = add_group(project, 'Keyboard')
+msg_group = add_group(project, 'MessagesExtension')
 test_group = add_group(project, 'ReplyAssistantTests')
 ui_test_group = add_group(project, 'ReplyAssistantUITests')
 
@@ -40,6 +41,8 @@ ext_refs = swift_files('ShareExtension').map { |f| ext_group.new_file(File.basen
 ext_group.new_file('Info.plist')
 kbd_refs = swift_files('Keyboard').map { |f| kbd_group.new_file(File.basename(f)) }
 kbd_group.new_file('Info.plist')
+msg_refs = swift_files('MessagesExtension').map { |f| msg_group.new_file(File.basename(f)) }
+msg_group.new_file('Info.plist')
 test_refs = swift_files('ReplyAssistantTests').map { |f| test_group.new_file(File.basename(f)) }
 ui_test_refs = swift_files('ReplyAssistantUITests').map { |f| ui_test_group.new_file(File.basename(f)) }
 
@@ -113,9 +116,28 @@ kbd.build_configurations.each do |c|
   )
 end
 
+# iMessage app (the Coax panel in Messages' + menu)
+msg = project.new_target(:messages_extension, 'MessagesExtension', :ios, IOS_VERSION)
+msg.add_file_references(shared_refs + msg_refs)
+msg.build_configurations.each do |c|
+  c.build_settings.merge!(common)
+  c.build_settings.merge!(
+    'PRODUCT_BUNDLE_IDENTIFIER' => "#{BUNDLE_ID}.MessagesExtension",
+    'PRODUCT_NAME' => '$(TARGET_NAME)',
+    'INFOPLIST_FILE' => 'MessagesExtension/Info.plist',
+    'INFOPLIST_KEY_NSPhotoLibraryUsageDescription' => PHOTOS_REASON,
+    'INFOPLIST_KEY_CFBundleDisplayName' => 'Coax',
+    'SKIP_INSTALL' => 'YES',
+    'APPLICATION_EXTENSION_API_ONLY' => 'YES',
+    'LD_RUNPATH_SEARCH_PATHS' => ['$(inherited)', '@executable_path/Frameworks',
+                                  '@executable_path/../../Frameworks'],
+  )
+end
+msg.add_system_framework('Messages')
+
 embed = app.new_copy_files_build_phase('Embed Foundation Extensions')
 embed.symbol_dst_subfolder_spec = :plug_ins
-[ext, kbd].each do |extension|
+[ext, kbd, msg].each do |extension|
   app.add_dependency(extension)
   embed_file = embed.add_file_reference(extension.product_reference, true)
   embed_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }

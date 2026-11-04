@@ -24,9 +24,11 @@ struct ChatMessage: Identifiable, Codable, Hashable {
 struct ReplySuggestion: Identifiable, Codable, Hashable {
     var id = UUID()
     var text: String
+    /// A short tag for the reply's angle ("playful", "direct"), when the engine sends one.
+    var label: String? = nil
 
     enum CodingKeys: String, CodingKey {
-        case text
+        case text, label
     }
 }
 

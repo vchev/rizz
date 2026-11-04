@@ -103,3 +103,12 @@ final class ThreeScreenshotTests: XCTestCase {
         XCTAssertEqual(Transcript.joinBestOrder([oldest, middle, latest]).map(\.text), ["a", "b", "c", "d", "e"])
     }
 }
+
+final class ReplySuggestionDecodingTests: XCTestCase {
+    func testLabelIsOptional() throws {
+        let json = #"[{"text": "dangerously confident tbh", "label": "playful"}, {"text": "coffee?"}]"#
+        let replies = try JSONDecoder().decode([ReplySuggestion].self, from: Data(json.utf8))
+        XCTAssertEqual(replies.map(\.text), ["dangerously confident tbh", "coffee?"])
+        XCTAssertEqual(replies.map(\.label), ["playful", nil])
+    }
+}

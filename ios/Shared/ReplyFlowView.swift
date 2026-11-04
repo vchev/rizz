@@ -62,7 +62,7 @@ struct ReplyFlowView: View {
                                 .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Image(systemName: copiedID == reply.id ? "checkmark" : "doc.on.doc")
-                                .foregroundStyle(copiedID == reply.id ? Color.green : Color.accentColor)
+                                .foregroundStyle(copiedID == reply.id ? Color.coaxDone : Color.accentColor)
                         }
                         .padding(.vertical, 4)
                     }
@@ -114,4 +114,23 @@ private struct MessageRow: View {
             if !mine { Spacer(minLength: 40) }
         }
     }
+}
+
+// MARK: - Brand colors
+
+/// Coax's colors (decided Nov 4: a blue close to the iMessage keyboard).
+/// Defined in code so the keyboard, which has no asset catalog, matches the app.
+extension Color {
+    /// Main color: buttons, links, the reply arrow.
+    static let coax = Color(UIColor { $0.userInterfaceStyle == .dark
+        ? UIColor(red: 0x3D / 255, green: 0x9B / 255, blue: 0xFF / 255, alpha: 1)
+        : UIColor(red: 0x0A / 255, green: 0x7C / 255, blue: 0xFF / 255, alpha: 1) })
+    /// Soft tint behind small numbers and tags.
+    static let coaxSoft = Color(UIColor { $0.userInterfaceStyle == .dark
+        ? UIColor(white: 1, alpha: 0.12)
+        : UIColor(red: 0xE3 / 255, green: 0xF0 / 255, blue: 0xFF / 255, alpha: 1) })
+    /// "Done" moments, like a reply that was typed in.
+    static let coaxDone = Color(UIColor { $0.userInterfaceStyle == .dark
+        ? UIColor(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255, alpha: 1)
+        : UIColor(red: 0x34 / 255, green: 0xC7 / 255, blue: 0x59 / 255, alpha: 1) })
 }

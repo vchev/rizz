@@ -50,8 +50,19 @@ def clean_messages(messages):
     return out[max(0, min(start, len(out) - 1)):]
 
 
-def parse_replies(raw):
-    """Pull the list of reply strings out of the model's answer (JSON, or a plain list as fallback)."""
+def clean_label(label):
+    """A short tag for the reply's angle ("playful", "direct"), or None if it looks off."""
+    if not isinstance(label, str):
+        return None
+    label = " ".join(label.strip().strip("\"'.").lower().split())
+    if not label or len(label) > 16 or len(label.split()) > 2 or not re.fullmatch(r"[a-z ]+", label):
+        return None
+    return label
+
+
+def parse_items(raw):
+    """Pull the replies out of the model's answer (JSON, or a plain list as fallback).
+    Returns [{"text": str, "label": str or None}]."""
     raw = (raw or "").strip()
     raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw)
     items = None
@@ -64,9 +75,11 @@ def parse_replies(raw):
             items = None
     if items is None:
         items = [re.sub(r"^\s*(?:\d+[.)]|[-*•])\s*", "", line) for line in raw.splitlines()]
-    replies = []
+    out = []
     for item in items:
+        label = None
         if isinstance(item, dict):
+            label = clean_label(item.get("label"))
             item = item.get("text", "")
         if not isinstance(item, str):
             continue
@@ -76,20 +89,30 @@ def parse_replies(raw):
         if text.startswith("“") and text.endswith("”"):
             text = text[1:-1].strip()
         if text:
-            replies.append(text[:MAX_REPLY_CHARS])
-    return replies
+            out.append({"text": text[:MAX_REPLY_CHARS], "label": label})
+    return out
 
 
-def pick(replies, n):
+def parse_replies(raw):
+    """Just the reply texts from the model's answer."""
+    return [item["text"] for item in parse_items(raw)]
+
+
+def pick_items(items, n):
     """Drop duplicates and stock phrases, keep the first n."""
     seen, out = set(), []
-    for r in replies:
+    for item in items:
+        r = item["text"]
         key = re.sub(r"[^\w\s]", "", r.lower()).strip()
         if not key or key in seen or r.lower().strip(" .!") in GENERIC:
             continue
         seen.add(key)
-        out.append(r)
+        out.append(item)
     return out[:n]
+
+
+def pick(replies, n):
+    return [item["text"] for item in pick_items([{"text": r, "label": None} for r in replies], n)]
 
 
 def model_call(system, user, config):
@@ -107,7 +130,15 @@ def model_call(system, user, config):
 def suggest_replies(messages, platform="imessage", n=None, tone=None, under_18=False,
                     call=None, config=None):
     """Return a list of up to n reply strings. call(system, user, config) -> raw text can be
-    swapped in for tests; by default it calls OpenRouter."""
+    swapped in for tests; by default it calls the configured model."""
+    return [item["text"] for item in suggest_reply_items(
+        messages, platform=platform, n=n, tone=tone, under_18=under_18, call=call, config=config)]
+
+
+def suggest_reply_items(messages, platform="imessage", n=None, tone=None, under_18=False,
+                        call=None, config=None):
+    """Like suggest_replies, but each reply comes with its short label (or None):
+    [{"text": str, "label": str or None}]."""
     config = config or settings.load_config()
     n = n or config.get("replies_per_request", 3)
     if not isinstance(n, int) or not 1 <= n <= 5:
@@ -118,10 +149,10 @@ def suggest_replies(messages, platform="imessage", n=None, tone=None, under_18=F
     system = prompts.system_prompt(under_18=bool(under_18))
     user = prompts.user_prompt(msgs, platform, n, tone)
     call = call or model_call
-    replies = pick(parse_replies(call(system, user, config)), n)
+    replies = pick_items(parse_items(call(system, user, config)), n)
     if len(replies) < n:   # one retry if the model came back short or malformed
-        more = parse_replies(call(system, user, config))
-        replies = pick(replies + more, n)
+        more = parse_items(call(system, user, config))
+        replies = pick_items(replies + more, n)
     if not replies:
         raise openrouter.ModelError("The model returned no usable replies")
     return replies
@@ -132,8 +163,8 @@ def stand_in_model(system, user, config):
     last = [l for l in user.splitlines() if l.startswith("MATCH: ")]
     topic = last[-1][len("MATCH: "):][:40] if last else "this"
     return json.dumps({"replies": [
-        "[stand-in] wait, %s?" % topic,
-        "[stand-in] ok I need the full story on that",
-        "[stand-in] haha what are you up to this weekend",
-        "[stand-in] fair. coffee sometime?",
+        {"text": "[stand-in] wait, %s?" % topic, "label": "curious"},
+        {"text": "[stand-in] ok I need the full story on that", "label": "playful"},
+        {"text": "[stand-in] haha what are you up to this weekend", "label": "forward"},
+        {"text": "[stand-in] fair. coffee sometime?", "label": "direct"},
     ]})

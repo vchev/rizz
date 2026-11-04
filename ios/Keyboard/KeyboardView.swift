@@ -20,6 +20,9 @@ struct KeyboardView: View {
     var body: some View {
         VStack(spacing: 6) {
             topBar
+            if state.panel == .keys && state.watching && !model.isBusy {
+                WatchingLine()
+            }
             Group {
                 switch state.panel {
                 case .keys:
@@ -37,51 +40,45 @@ struct KeyboardView: View {
         .padding(.bottom, 4)
     }
 
+    /// Same bar on every screen: [keyboard] [Last N screenshots] [1 2 3] [clipboard].
+    /// The keyboard button sits on the left, in a dark circle, whenever the keys are hidden.
     private var topBar: some View {
         HStack(spacing: 6) {
-            HStack(spacing: 0) {
-                ReplyBarButton(title: state.screenshotCount == 1 ? "Last screenshot" : "Last \(state.screenshotCount) screenshots",
-                               systemImage: "photo.on.rectangle", prominent: true) {
-                    start(actions.getRepliesFromScreenshots)
-                }
-                Button {
-                    state.screenshotCount = state.screenshotCount % 3 + 1
-                } label: {
-                    Text("\(state.screenshotCount)")
-                        .font(.footnote.weight(.bold))
-                        .frame(width: 30, height: 30)
-                        .background(Color(.systemBackground), in: Circle())
-                        .foregroundStyle(Color.accentColor)
-                }
-                .buttonStyle(.plain)
-                .padding(.leading, 4)
-                .accessibilityLabel("Number of screenshots: \(state.screenshotCount). Tap to change.")
-            }
-            // Backup for when a screenshot can't be read: replies to whatever was copied.
-            Button {
-                start(actions.getReplies)
-            } label: {
-                Image(systemName: "doc.on.clipboard")
-                    .frame(width: 40, height: 34)
-                    .background(Color(.systemBackground), in: Capsule())
-                    .foregroundStyle(Color.primary)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Get replies to what I copied")
             if state.panel != .keys {
                 Button {
                     state.panel = .keys
                 } label: {
                     Image(systemName: "keyboard")
-                        .frame(width: 40, height: 34)
-                        .background(Color(.systemBackground), in: Capsule())
-                        .foregroundStyle(Color.primary)
+                        .font(.footnote.weight(.semibold))
+                        .frame(width: 38, height: 34)
+                        .background(Color.primary, in: Capsule())
+                        .foregroundStyle(Color(.systemBackground))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Back to keys")
+                .accessibilityLabel("Back to typing")
             }
+            ReplyBarButton(title: state.screenshotCount == 1 ? "Last screenshot" : "Last \(state.screenshotCount)",
+                           systemImage: "camera.viewfinder", prominent: true) {
+                start(actions.getRepliesFromScreenshots)
+            }
+            .disabled(model.isBusy)
+            .accessibilityLabel(state.screenshotCount == 1 ? "Reply to my last screenshot"
+                                                           : "Reply to my last \(state.screenshotCount) screenshots")
+            ScreenshotCountPicker(count: $state.screenshotCount)
+                .disabled(model.isBusy)
+            // Backup for when a screenshot can't be read: replies to whatever was copied.
+            Button {
+                start(actions.getReplies)
+            } label: {
+                Image(systemName: "doc.on.clipboard")
+                    .frame(width: 38, height: 34)
+                    .background(Color(.systemBackground), in: Capsule())
+                    .foregroundStyle(Color.primary)
+            }
+            .buttonStyle(.plain)
+            .disabled(model.isBusy)
+            .accessibilityLabel("Get replies to what I copied")
         }
-        .disabled(model.isBusy)
         .padding(.horizontal, 2)
     }
 
@@ -92,6 +89,56 @@ struct KeyboardView: View {
         } else {
             state.panel = state.panel == .fullAccessHelp ? .keys : .fullAccessHelp
         }
+    }
+}
+
+/// How many recent screenshots to read: 1, 2 or 3, all visible at once.
+private struct ScreenshotCountPicker: View {
+    @Binding var count: Int
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(1...3, id: \.self) { n in
+                Button {
+                    count = n
+                } label: {
+                    Text("\(n)")
+                        .font(.footnote.weight(.bold))
+                        .frame(width: 26, height: 26)
+                        .background(n == count ? Color.coax : Color.clear, in: Circle())
+                        .foregroundStyle(n == count ? Color.white : Color.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Read \(n) screenshot\(n == 1 ? "" : "s")")
+                .accessibilityAddTraits(n == count ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(Color(.systemBackground), in: Capsule())
+    }
+}
+
+/// A quiet line under the bar: Coax is ready for the next screenshot.
+private struct WatchingLine: View {
+    @State private var dim = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(Color.coax)
+                .frame(width: 6, height: 6)
+                .opacity(dim ? 0.25 : 1)
+            Text("Take a screenshot and I'll read it right away")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.8).repeatForever()) { dim = true }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -108,7 +155,7 @@ private struct ReplyBarButton: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
                 .frame(maxWidth: .infinity, minHeight: 34)
-                .background(prominent ? Color.accentColor : Color(.systemBackground), in: Capsule())
+                .background(prominent ? Color.coax : Color(.systemBackground), in: Capsule())
                 .foregroundStyle(prominent ? Color.white : Color.primary)
         }
         .buttonStyle(.plain)
@@ -125,12 +172,13 @@ private struct RepliesPanel: View {
     var body: some View {
         switch model.phase {
         case .waiting:
-            Hint(systemImage: "doc.on.doc",
-                 text: "Screenshot the chat and tap the screenshots button (tap the number to read 1, 2 or 3). Or copy their message and tap the clipboard button.")
+            Hint(systemImage: "camera.viewfinder",
+                 text: "Take a screenshot of the chat and I'll read it. Pick 1, 2 or 3 to read more of the chat, or copy their message and tap the clipboard.")
         case .reading:
-            Working(text: "Reading what you copied…")
+            Working(previews: model.previews,
+                    text: state.autoRead ? "Reading your new screenshot…" : "Reading the chat…")
         case .generating:
-            Working(text: "Writing replies…")
+            Working(previews: model.previews, text: "Writing replies…")
         case .failed(let reason):
             Hint(systemImage: "exclamationmark.triangle", text: reason)
         case .done:
@@ -195,18 +243,29 @@ private struct ReplyCard: View {
     var body: some View {
         Button(action: action) {
             HStack(alignment: .top, spacing: 8) {
-                Text(reply.text)
-                    .font(.callout)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    if let label = reply.label, !label.isEmpty {
+                        Text(label.uppercased())
+                            .font(.caption2.weight(.bold))
+                            .kerning(0.4)
+                            .foregroundStyle(inserted ? Color.coaxDone : Color.coax)
+                    }
+                    Text(reply.text)
+                        .font(.callout)
+                        .multilineTextAlignment(.leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: inserted ? "checkmark.circle.fill" : "arrow.up.circle")
-                    .foregroundStyle(inserted ? Color.green : Color.accentColor)
+                    .foregroundStyle(inserted ? Color.coaxDone : Color.coax)
             }
             .padding(10)
             .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(inserted ? Color.coaxDone : Color.clear, lineWidth: 1.5))
             .foregroundStyle(Color.primary)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(reply.label.map { "\($0): \(reply.text)" } ?? reply.text)
         .accessibilityHint("Types this reply into the message box")
     }
 }
@@ -227,12 +286,31 @@ private struct Hint: View {
     }
 }
 
+/// Shows the screenshots being read, small, so people know what Coax is looking at.
 private struct Working: View {
+    var previews: [UIImage]
     var text: String
+
     var body: some View {
-        HStack(spacing: 10) {
-            ProgressView()
-            Text(text).foregroundStyle(.secondary)
+        VStack(spacing: 10) {
+            if !previews.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(previews.indices, id: \.self) { i in
+                        Image(uiImage: previews[i])
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 44, height: 80)
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(Color.coax, lineWidth: 2))
+                    }
+                }
+                .accessibilityHidden(true)
+            }
+            HStack(spacing: 8) {
+                ProgressView()
+                Text(text).font(.callout).foregroundStyle(.secondary)
+            }
         }
     }
 }

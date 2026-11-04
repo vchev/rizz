@@ -17,6 +17,8 @@ final class ReplyFlowModel: ObservableObject {
     @Published var replies: [ReplySuggestion] = []
     /// Set when the user edits the conversation after replies came back.
     @Published var editedSinceReplies = false
+    /// The screenshots being read, shown small while Coax reads them.
+    @Published var previews: [UIImage] = []
 
     let service: ReplyService
     private let reader = ScreenshotReader()
@@ -56,8 +58,10 @@ final class ReplyFlowModel: ObservableObject {
         phase = .reading
         replies = []
         messages = []
+        previews = []
         do {
             let images = try await RecentScreenshots.latest(min(max(count, 1), 3))
+            previews = images
             var parts: [[ChatMessage]] = []
             for image in images {
                 parts.append(try await reader.read(image))
@@ -139,6 +143,7 @@ final class ReplyFlowModel: ObservableObject {
     }
 
     func reset() {
+        previews = []
         phase = .waiting
         messages = []
         replies = []

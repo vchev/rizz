@@ -40,19 +40,7 @@ enum RecentScreenshots {
         let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         if status == .limited { throw Failure.limitedAccess }
 
-        let options = PHFetchOptions()
-        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        options.fetchLimit = count
-
-        let assets: PHFetchResult<PHAsset>
-        let albums = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumScreenshots, options: nil)
-        if let screenshots = albums.firstObject {
-            assets = PHAsset.fetchAssets(in: screenshots, options: options)
-        } else {
-            options.predicate = NSPredicate(format: "(mediaSubtypes & %d) != 0",
-                                            PHAssetMediaSubtype.photoScreenshot.rawValue)
-            assets = PHAsset.fetchAssets(with: .image, options: options)
-        }
+        let assets = fetchScreenshots(limit: count)
 
         var newestFirst: [PHAsset] = []
         assets.enumerateObjects { asset, _, _ in newestFirst.append(asset) }
@@ -68,6 +56,26 @@ enum RecentScreenshots {
         }
         guard !images.isEmpty else { throw Failure.noneFound }
         return images
+    }
+
+    /// Screenshots, newest first.
+    static func fetchScreenshots(limit: Int) -> PHFetchResult<PHAsset> {
+        let options = PHFetchOptions()
+        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        options.fetchLimit = limit
+        let albums = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumScreenshots, options: nil)
+        if let screenshots = albums.firstObject {
+            return PHAsset.fetchAssets(in: screenshots, options: options)
+        }
+        options.predicate = NSPredicate(format: "(mediaSubtypes & %d) != 0",
+                                        PHAssetMediaSubtype.photoScreenshot.rawValue)
+        return PHAsset.fetchAssets(with: .image, options: options)
+    }
+
+    /// The newest screenshot's id and time, without loading the image.
+    static func newest() -> (id: String, created: Date)? {
+        guard let asset = fetchScreenshots(limit: 1).firstObject else { return nil }
+        return (asset.localIdentifier, asset.creationDate ?? .distantPast)
     }
 
     private static func image(for asset: PHAsset, maxWidth: CGFloat) async -> UIImage? {
@@ -86,5 +94,51 @@ enum RecentScreenshots {
                 continuation.resume(returning: image)
             }
         }
+    }
+}
+
+/// Watches for a screenshot taken while the Coax keyboard is open, so it can
+/// read it without a tap. Only looks at screenshots newer than `start()`.
+/// Photos tells us about changes; a light check every 1.5 seconds backs that
+/// up, in case iOS doesn't send change notices to the keyboard.
+@MainActor
+final class ScreenshotWatcher: NSObject, PHPhotoLibraryChangeObserver {
+    var onNewScreenshot: (() -> Void)?
+    private var since = Date()
+    private var lastSeenID: String?
+    private var timer: Timer?
+    private var registered = false
+
+    func start() {
+        stop()
+        since = Date()
+        lastSeenID = RecentScreenshots.newest()?.id
+        PHPhotoLibrary.shared().register(self)
+        registered = true
+        timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.check() }
+        }
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        if registered {
+            PHPhotoLibrary.shared().unregisterChangeObserver(self)
+            registered = false
+        }
+    }
+
+    nonisolated func photoLibraryDidChange(_ changeInstance: PHChange) {
+        Task { @MainActor in self.check() }
+    }
+
+    private func check() {
+        guard let newest = RecentScreenshots.newest(),
+              newest.id != lastSeenID,
+              newest.created > since.addingTimeInterval(-2)
+        else { return }
+        lastSeenID = newest.id
+        onNewScreenshot?()
     }
 }
