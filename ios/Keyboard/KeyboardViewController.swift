@@ -10,6 +10,14 @@ final class KeyboardState: ObservableObject {
     @Published var panel: Panel = .keys
     @Published var shifted = true
     @Published var showingSymbols = false
+    /// How many recent screenshots to read (1 to 3). Remembered between uses;
+    /// this number is the only thing the keyboard saves.
+    @Published var screenshotCount: Int = {
+        let saved = UserDefaults.standard.integer(forKey: "screenshotCount")
+        return (1...3).contains(saved) ? saved : 2
+    }() {
+        didSet { UserDefaults.standard.set(screenshotCount, forKey: "screenshotCount") }
+    }
 
     enum Panel { case keys, replies, fullAccessHelp }
 }
@@ -82,7 +90,8 @@ final class KeyboardViewController: UIInputViewController {
         refreshState()
         guard hasFullAccess else { return }
         state.insertedID = nil
-        Task { @MainActor in await model.readLatestScreenshots() }
+        let count = state.screenshotCount
+        Task { @MainActor in await model.readLatestScreenshots(count: count) }
     }
 
     /// Without Full Access, iOS gives the keyboard neither the clipboard nor the internet.

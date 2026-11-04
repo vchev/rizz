@@ -92,3 +92,14 @@ final class TranscriptOrderTests: XCTestCase {
         XCTAssertEqual(Transcript.joinBestOrder(a, b).map(\.text), ["one", "two"])
     }
 }
+
+final class ThreeScreenshotTests: XCTestCase {
+    func testThreeScreenshotsTakenNewestFirstAreJoinedInChatOrder() {
+        func m(_ s: Speaker, _ t: String) -> ChatMessage { ChatMessage(speaker: s, text: t) }
+        let latest = [m(.them, "c"), m(.you, "d"), m(.them, "e")]
+        let middle = [m(.you, "b"), m(.them, "c")]
+        let oldest = [m(.them, "a"), m(.you, "b")]
+        XCTAssertEqual(Transcript.joinBestOrder([latest, middle, oldest]).map(\.text), ["a", "b", "c", "d", "e"])
+        XCTAssertEqual(Transcript.joinBestOrder([oldest, middle, latest]).map(\.text), ["a", "b", "c", "d", "e"])
+    }
+}

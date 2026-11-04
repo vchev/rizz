@@ -39,8 +39,23 @@ struct KeyboardView: View {
 
     private var topBar: some View {
         HStack(spacing: 6) {
-            ReplyBarButton(title: "Last 2 screenshots", systemImage: "photo.on.rectangle", prominent: true) {
-                start(actions.getRepliesFromScreenshots)
+            HStack(spacing: 0) {
+                ReplyBarButton(title: state.screenshotCount == 1 ? "Last screenshot" : "Last \(state.screenshotCount) screenshots",
+                               systemImage: "photo.on.rectangle", prominent: true) {
+                    start(actions.getRepliesFromScreenshots)
+                }
+                Button {
+                    state.screenshotCount = state.screenshotCount % 3 + 1
+                } label: {
+                    Text("\(state.screenshotCount)")
+                        .font(.footnote.weight(.bold))
+                        .frame(width: 30, height: 30)
+                        .background(Color(.systemBackground), in: Circle())
+                        .foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 4)
+                .accessibilityLabel("Number of screenshots: \(state.screenshotCount). Tap to change.")
             }
             ReplyBarButton(title: "What I copied", systemImage: "doc.on.clipboard", prominent: false) {
                 start(actions.getReplies)
@@ -103,7 +118,7 @@ private struct RepliesPanel: View {
         switch model.phase {
         case .waiting:
             Hint(systemImage: "doc.on.doc",
-                 text: "Screenshot the chat and tap Last 2 screenshots. Or copy their message and tap What I copied.")
+                 text: "Screenshot the chat and tap the screenshots button (tap the number to read 1, 2 or 3). Or copy their message and tap What I copied.")
         case .reading:
             Working(text: "Reading what you copied…")
         case .generating:

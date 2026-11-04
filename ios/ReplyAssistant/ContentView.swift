@@ -57,7 +57,7 @@ struct ContentView: View {
                     Text("How to use it").font(.headline)
                     Step(number: 1, text: "In Hinge, Messages or any chat, scroll up one screen and take a screenshot, then scroll back down and take another.")
                     Step(number: 2, text: "Tap the message box, then hold the 🌐 key and pick Coax.")
-                    Step(number: 3, text: "Tap Last 2 screenshots (or What I copied), then tap a reply to type it in.")
+                    Step(number: 3, text: "Tap the screenshots button (tap the number to pick 1, 2 or 3), then tap a reply to type it in.")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 

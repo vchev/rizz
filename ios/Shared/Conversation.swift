@@ -38,13 +38,20 @@ enum Transcript {
         earlier + next.dropFirst(overlap(earlier, then: next))
     }
 
-    /// Joins two screenshots' messages in whichever order they overlap best.
-    /// People scroll both ways between screenshots, so the newer screenshot can
-    /// show older messages. With no overlap, the order they were taken wins.
+    /// Joins screenshots' messages in whichever order they overlap best.
+    /// `parts` is in the order the screenshots were taken. People scroll both
+    /// ways between screenshots, so the reverse order is tried too. With no
+    /// overlap either way, the order they were taken wins.
+    static func joinBestOrder(_ parts: [[ChatMessage]]) -> [ChatMessage] {
+        func totalOverlap(_ ordered: [[ChatMessage]]) -> Int {
+            zip(ordered, ordered.dropFirst()).reduce(0) { $0 + overlap($1.0, then: $1.1) }
+        }
+        let ordered = totalOverlap(parts.reversed()) > totalOverlap(parts) ? Array(parts.reversed()) : parts
+        return ordered.reduce([]) { append($1, to: $0) }
+    }
+
     static func joinBestOrder(_ first: [ChatMessage], _ second: [ChatMessage]) -> [ChatMessage] {
-        let forward = overlap(first, then: second)
-        let backward = overlap(second, then: first)
-        return backward > forward ? append(first, to: second) : append(second, to: first)
+        joinBestOrder([first, second])
     }
 
     /// How many messages at the end of `earlier` repeat at the start of `next`.
