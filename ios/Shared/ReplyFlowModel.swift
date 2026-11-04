@@ -130,6 +130,14 @@ final class ReplyFlowModel: ObservableObject {
         editedSinceReplies = true
     }
 
+    /// Replies the Back Tap shortcut already made.
+    func show(_ pending: PendingReplies) {
+        messages = pending.messages
+        replies = pending.replies
+        editedSinceReplies = false
+        phase = .done
+    }
+
     func reset() {
         phase = .waiting
         messages = []

@@ -11,7 +11,7 @@ final class ScreenshotReaderTests: XCTestCase {
     }
 
     /// A 1179 x 2556 image, the size of an iPhone 15 screenshot.
-    private func renderChat(_ bubbles: [Bubble]) -> UIImage {
+    private func renderChat(_ bubbles: [Bubble], extras: Bool = false) -> UIImage {
         let size = CGSize(width: 1179, height: 2556)
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
@@ -51,6 +51,18 @@ final class ScreenshotReaderTests: XCTestCase {
                           attributes: attrs, context: nil)
                 y += h + 30
             }
+
+            guard extras else { return }
+            // App text that isn't a message: a plain left-aligned prompt with no
+            // bubble, and an input field with a greyed-out placeholder.
+            let plain: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 46), .foregroundColor: UIColor.black]
+            ("Your move, ask about her trip" as NSString).draw(at: CGPoint(x: 60, y: y + 40), withAttributes: plain)
+            let field = CGRect(x: 48, y: size.height - 260, width: size.width - 96, height: 120)
+            UIColor(white: 0.95, alpha: 1).setFill()
+            UIBezierPath(roundedRect: field, cornerRadius: 60).fill()
+            let placeholder: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 48),
+                                                              .foregroundColor: UIColor(white: 0.56, alpha: 1)]
+            ("Type something fun" as NSString).draw(at: CGPoint(x: 100, y: field.minY + 32), withAttributes: placeholder)
         }
     }
 
@@ -75,5 +87,56 @@ final class ScreenshotReaderTests: XCTestCase {
         XCTAssertTrue(words(messages[0].text).contains("free this weekend"))
         XCTAssertTrue(words(messages[2].text).contains("dumplings"), "A wrapped bubble should stay one message")
         XCTAssertFalse(messages.contains { words($0.text).contains("delivered") })
+    }
+
+    func testSkipsTextOutsideBubblesAndGreyPlaceholders() async throws {
+        let image = renderChat([
+            Bubble(kind: .them, text: "are you free this weekend"),
+            Bubble(kind: .you, text: "maybe, what did you have in mind"),
+        ], extras: true)
+        let messages = try await ScreenshotReader().read(image)
+        let read = messages.map { "\($0.speaker): \($0.text)" }
+        XCTAssertEqual(messages.count, 2, "Read: \(read)")
+        XCTAssertFalse(messages.contains { words($0.text).contains("something fun") }, "Placeholder kept: \(read)")
+        XCTAssertFalse(messages.contains { words($0.text).contains("your move") }, "Bubble-less text kept: \(read)")
+    }
+
+    /// Dark chat where their bubbles sit after a profile photo, so the text of
+    /// both sides starts at nearly the same x. Only the right edge tells them apart.
+    func testTellsSpeakersApartWhenBothSidesStartAtTheSameX() async throws {
+        let size = CGSize(width: 1179, height: 2556)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let you = UIColor(red: 0.27, green: 0.31, blue: 0.40, alpha: 1)
+        let them = UIColor(white: 0.22, alpha: 1)
+        let rows: [(String, Bool, CGFloat)] = [   // text, from you, bubble width share
+            ("I played pickleball 3 times", true, 0.78),
+            ("Are you really good or what", true, 0.77),
+            ("Haha I'm pretty good, find out", false, 0.66),
+            ("When are you usually free", false, 0.68),
+        ]
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            UIColor(white: 0.1, alpha: 1).setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            var y: CGFloat = 400
+            let attrs: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 48),
+                                                        .foregroundColor: UIColor(white: 0.93, alpha: 1)]
+            for (text, fromYou, share) in rows {
+                let w = size.width * share
+                let x = fromYou ? size.width * 0.97 - w : size.width * 0.17
+                let rect = CGRect(x: x, y: y, width: w, height: 130)
+                (fromYou ? you : them).setFill()
+                UIBezierPath(roundedRect: rect, cornerRadius: 50).fill()
+                if !fromYou {
+                    UIColor(white: 0.45, alpha: 1).setFill()
+                    UIBezierPath(ovalIn: CGRect(x: 50, y: y + 5, width: 120, height: 120)).fill()
+                }
+                (text as NSString).draw(at: CGPoint(x: x + 45, y: y + 35), withAttributes: attrs)
+                y += 170
+            }
+        }
+        let messages = try await ScreenshotReader().read(image)
+        XCTAssertEqual(messages.map(\.speaker), [.you, .you, .them, .them],
+                       "Read: \(messages.map { "\($0.speaker): \($0.text)" })")
     }
 }

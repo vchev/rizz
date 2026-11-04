@@ -68,6 +68,15 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refreshState()
+        showShortcutReplies()
+    }
+
+    /// Replies the Back Tap shortcut left for us: show them straight away.
+    private func showShortcutReplies() {
+        guard hasFullAccess, !model.isBusy, let pending = PendingReplies.take() else { return }
+        state.insertedID = nil
+        model.show(pending)
+        state.panel = .replies
     }
 
     override func viewWillLayoutSubviews() {

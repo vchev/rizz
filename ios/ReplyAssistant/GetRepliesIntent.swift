@@ -41,10 +41,10 @@ struct GetCoaxRepliesIntent: AppIntent {
             .suggestReplies(for: messages, platform: "imessage", tone: nil)
         guard let best = replies.first else { throw NothingToReadError() }
 
-        await MainActor.run { UIPasteboard.general.string = best.text }
+        // Best reply on the clipboard, and all of them waiting in the Coax keyboard.
+        await PendingReplies.publish(messages: messages, replies: replies)
 
-        let others = replies.dropFirst().map { "• \($0.text)" }.joined(separator: "\n")
-        let summary = others.isEmpty ? "Copied: \(best.text)" : "Copied: \(best.text)\n\nOther ideas:\n\(others)"
+        let summary = "\(replies.count) replies are waiting in the Coax keyboard. Tap the message box to pick one."
         return .result(value: best.text, dialog: IntentDialog(stringLiteral: summary))
     }
 }
