@@ -1,7 +1,6 @@
 import XCTest
 
-/// Walks through first-run setup in the simulator. Apple's age sheet can't be
-/// tapped in tests, so these use the birth-year question instead.
+/// Walks through first-run setup in the simulator. The age is picked by tapping.
 final class OnboardingUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
@@ -14,22 +13,20 @@ final class OnboardingUITests: XCTestCase {
         return app
     }
 
-    private func pickBirthYear(_ app: XCUIApplication, yearsAgo: Int) {
+    private func pickAge(_ app: XCUIApplication, _ answer: String) {
         let start = app.buttons["Get started"]
         XCTAssertTrue(start.waitForExistence(timeout: 5))
         save(app, "onboarding-1-welcome")
         start.tap()
-        let wheel = app.pickerWheels.firstMatch
-        XCTAssertTrue(wheel.waitForExistence(timeout: 5))
-        let year = Calendar.current.component(.year, from: Date()) - yearsAgo
-        wheel.adjust(toPickerWheelValue: String(year))
-        save(app, "onboarding-2-birth-year")
-        app.buttons["Continue"].tap()
+        let button = app.buttons[answer]
+        XCTAssertTrue(button.waitForExistence(timeout: 5), "Age buttons should show right away")
+        save(app, "onboarding-2-age")
+        button.tap()
     }
 
     func testAdultSeesARealReplyThenSetsUpKeyboard() throws {
         let app = launch()
-        pickBirthYear(app, yearsAgo: 30)
+        pickAge(app, "I'm 18 or older")
 
         let reply = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] %@", "Sample reply")).firstMatch
         XCTAssertTrue(reply.waitForExistence(timeout: 30), "Replies should appear in the first minute")
@@ -55,17 +52,14 @@ final class OnboardingUITests: XCTestCase {
 
     func testUnder16IsTurnedAway() throws {
         let app = launch()
-        pickBirthYear(app, yearsAgo: 14)
+        pickAge(app, "I'm under 16")
         XCTAssertTrue(app.staticTexts["Coax is for people 16 and older"].waitForExistence(timeout: 5))
         save(app, "onboarding-under-16")
     }
 
     func testSixteenOrSeventeenAsksForParentOK() throws {
         let app = launch()
-        pickBirthYear(app, yearsAgo: 16)   // 15 or 16: asks about the birthday, "Yes" = 16
-        let yes = app.buttons["Yes"]
-        XCTAssertTrue(yes.waitForExistence(timeout: 5))
-        yes.tap()
+        pickAge(app, "I'm 16 or 17")
         let ok = app.buttons["My parent or guardian said OK"]
         XCTAssertTrue(ok.waitForExistence(timeout: 5))
         save(app, "onboarding-teen-parent")
