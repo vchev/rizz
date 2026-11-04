@@ -47,7 +47,7 @@ enum Transcript {
             zip(ordered, ordered.dropFirst()).reduce(0) { $0 + overlap($1.0, then: $1.1) }
         }
         let ordered = totalOverlap(parts.reversed()) > totalOverlap(parts) ? Array(parts.reversed()) : parts
-        return ordered.reduce([]) { append($1, to: $0) }
+        return ordered.reduce([ChatMessage]()) { append($1, to: $0) }
     }
 
     static func joinBestOrder(_ first: [ChatMessage], _ second: [ChatMessage]) -> [ChatMessage] {
