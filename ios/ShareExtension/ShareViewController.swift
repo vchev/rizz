@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 /// The "Coax" item in the share sheet. Reads the shared
 /// screenshot(s) and shows reply suggestions right there, ready to copy.
 final class ShareViewController: UIViewController {
-    private let model = ReplyFlowModel()
+    private let model = ReplyFlowModel(store: ChatStore.forUse)
 
     override func viewDidLoad() {
         super.viewDidLoad()

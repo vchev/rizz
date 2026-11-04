@@ -42,6 +42,37 @@ final class BubbleLayoutTests: XCTestCase {
         XCTAssertEqual(messages[1].speaker, .them)
     }
 
+    /// Bumble quoted replies: the quoted name and the shortened quote are not
+    /// messages (Vanessa's Nov 4 Bumble screenshot with Chai).
+    func testQuotedRepliesAreDropped() {
+        let messages = BubbleLayout.messages(from: [
+            line("Vanessa", x: 0.09, y: 0.50, w: 0.12, h: 0.013),
+            line("So it's dependent on who updates thei...", x: 0.09, y: 0.517, w: 0.55, h: 0.013),
+            line("Maybe. Not necessary.", x: 0.06, y: 0.54, w: 0.42),
+            line("Sometimes it's just an experiment", x: 0.06, y: 0.565, w: 0.60),
+            line("Chai", x: 0.36, y: 0.63, w: 0.06, h: 0.013),
+            line("Maybe. Not necessary. Sometimes it's j…", x: 0.36, y: 0.647, w: 0.56, h: 0.013),
+            line("Ohh that's true!", x: 0.35, y: 0.665, w: 0.28),
+        ])
+        XCTAssertEqual(messages.map(\.text), ["Maybe. Not necessary. Sometimes it's just an experiment", "Ohh that's true!"])
+        XCTAssertEqual(messages.map(\.speaker), [.them, .you])
+    }
+
+    /// A screenshot someone sent inside the chat: its text is tiny and must
+    /// not be read as messages (its own "you" bubbles would look like theirs).
+    func testTextInsideASharedPictureIsDropped() {
+        let messages = BubbleLayout.messages(from: [
+            line("Oooh that was my original plan but hasn't", x: 0.10, y: 0.12, w: 0.25, h: 0.007),
+            line("the UI changed for you like in the past", x: 0.10, y: 0.128, w: 0.25, h: 0.007),
+            line("I haven't updated my app in months", x: 0.05, y: 0.20, w: 0.20, h: 0.007),
+            line("Wait it just vanished", x: 0.58, y: 0.32, w: 0.36),
+            line("So it's dependent on who", x: 0.47, y: 0.45, w: 0.46),
+            line("Btw! I'm sure you get this a lot", x: 0.06, y: 0.68, w: 0.55),
+        ])
+        XCTAssertEqual(messages.map(\.text), ["Wait it just vanished", "So it's dependent on who", "Btw! I'm sure you get this a lot"])
+        XCTAssertEqual(messages.map(\.speaker), [.you, .you, .them])
+    }
+
     func testOrderFollowsPositionNotInputOrder() {
         let messages = BubbleLayout.messages(from: [
             line("second", x: 0.70, y: 0.60, w: 0.20),

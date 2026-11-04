@@ -100,7 +100,9 @@ enum RecentScreenshots {
 /// Watches for a screenshot taken while the Coax keyboard is open, so it can
 /// read it without a tap. Only looks at screenshots newer than `start()`.
 /// Photos tells us about changes; a light check every 1.5 seconds backs that
-/// up, in case iOS doesn't send change notices to the keyboard.
+/// up, in case iOS doesn't send change notices to the keyboard. The Photos
+/// lookups run off the main thread and pause while the user is typing, so
+/// they never slow the keys down.
 @MainActor
 final class ScreenshotWatcher: NSObject, PHPhotoLibraryChangeObserver {
     var onNewScreenshot: (() -> Void)?
@@ -108,11 +110,29 @@ final class ScreenshotWatcher: NSObject, PHPhotoLibraryChangeObserver {
     private var lastSeenID: String?
     private var timer: Timer?
     private var registered = false
+    private var checking = false
+    private var quietUntil = Date.distantPast
+    private let queue = DispatchQueue(label: "coax.screenshot-watcher", qos: .utility)
 
-    func start() {
+    /// `lookBack`: also read a screenshot taken up to this many seconds before
+    /// starting (the iMessage app uses this, for "screenshot, then open Coax").
+    func start(lookBack: TimeInterval = 0) {
         stop()
-        since = Date()
-        lastSeenID = RecentScreenshots.newest()?.id
+        since = Date().addingTimeInterval(-lookBack)
+        lastSeenID = nil
+        if lookBack > 0 {
+            check()
+        } else {
+            checking = true
+            queue.async { [weak self] in
+                let newest = RecentScreenshots.newest()
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.lastSeenID = newest?.id
+                    self.checking = false
+                }
+            }
+        }
         PHPhotoLibrary.shared().register(self)
         registered = true
         timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
@@ -129,16 +149,31 @@ final class ScreenshotWatcher: NSObject, PHPhotoLibraryChangeObserver {
         }
     }
 
+    /// Call on every key press: checks wait until typing pauses for 2 seconds.
+    func userIsTyping() {
+        quietUntil = Date().addingTimeInterval(2)
+    }
+
     nonisolated func photoLibraryDidChange(_ changeInstance: PHChange) {
         Task { @MainActor in self.check() }
     }
 
     private func check() {
-        guard let newest = RecentScreenshots.newest(),
-              newest.id != lastSeenID,
-              newest.created > since.addingTimeInterval(-2)
-        else { return }
-        lastSeenID = newest.id
-        onNewScreenshot?()
+        guard !checking, Date() >= quietUntil else { return }
+        checking = true
+        let since = self.since
+        queue.async { [weak self] in
+            let newest = RecentScreenshots.newest()
+            Task { @MainActor in
+                guard let self else { return }
+                self.checking = false
+                guard let newest,
+                      newest.id != self.lastSeenID,
+                      newest.created > since.addingTimeInterval(-2)
+                else { return }
+                self.lastSeenID = newest.id
+                self.onNewScreenshot?()
+            }
+        }
     }
 }

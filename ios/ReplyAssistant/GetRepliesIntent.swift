@@ -37,12 +37,18 @@ struct GetCoaxRepliesIntent: AppIntent {
         }
         guard messages.contains(where: { $0.speaker == .them }) else { throw NothingToReadError() }
 
+        // Add the earlier part of this chat, if Coax has read it before.
+        let readCount = messages.count
+        if screenshot != nil, let store = ChatStore.forUse {
+            messages = Array(store.remember(messages).messages.suffix(ReplyFlowModel.maxMessagesSent))
+        }
+
         let replies = try await ReplyServices.makeDefault()
             .suggestReplies(for: messages, platform: "imessage", tone: nil)
         guard let best = replies.first else { throw NothingToReadError() }
 
         // Best reply on the clipboard, and all of them waiting in the Coax keyboard.
-        await PendingReplies.publish(messages: messages, replies: replies)
+        await PendingReplies.publish(messages: messages, replies: replies, readCount: readCount)
 
         let summary = "\(replies.count) replies are waiting in the Coax keyboard. Tap the message box to pick one."
         return .result(value: best.text, dialog: IntentDialog(stringLiteral: summary))

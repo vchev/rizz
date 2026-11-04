@@ -4,7 +4,7 @@ import SwiftUI
 import UIKit
 
 struct ContentView: View {
-    @StateObject private var model = ReplyFlowModel()
+    @StateObject private var model = ReplyFlowModel(store: ChatStore.forUse)
     @State private var pickedItems: [PhotosPickerItem] = []
     @State private var pasteFailed = false
 
@@ -62,6 +62,8 @@ struct ContentView: View {
                     .multilineTextAlignment(.center)
 
                 KeyboardSetupCard()
+
+                BackTapCard()
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("How to use it").font(.headline)
@@ -154,6 +156,38 @@ private struct KeyboardSetupCard: View {
             .controlSize(.large)
         }
         .padding(16)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+/// Optional and even faster: double-tap the back of the phone to read the
+/// chat; the replies then wait in the Coax keyboard.
+private struct BackTapCard: View {
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Even faster: double-tap the back of your phone").font(.headline)
+            Text("Optional. Coax reads the chat on screen, and the replies wait in the Coax keyboard.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            if let link = AppConfig.backTapShortcutLink {
+                Step(number: 1, text: "Tap Add Shortcut below, then Add Shortcut again.")
+                Button {
+                    openURL(link)
+                } label: {
+                    Label("Add Shortcut", systemImage: "plus.square.on.square")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            } else {
+                Step(number: 1, text: "In the Shortcuts app, tap +, add Take Screenshot, then add Get Coax Replies. Name it Coax.")
+            }
+            Step(number: 2, text: "Open the Settings app › Accessibility › Touch › Back Tap › Double Tap, and pick Coax. (iPhone 15 Pro or newer: you can use the Action button instead.)")
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

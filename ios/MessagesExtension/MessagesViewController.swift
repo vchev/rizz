@@ -7,7 +7,7 @@ import UIKit
 /// tapping a reply puts it in the Messages text box, ready to send.
 /// iMessage apps can use the internet without Full Access, unlike keyboards.
 final class MessagesViewController: MSMessagesAppViewController {
-    private let model = ReplyFlowModel()
+    private let model = ReplyFlowModel(store: ChatStore.forUse)
     private let screen = MessagesScreenState()
     private let watcher = ScreenshotWatcher()
 
@@ -40,8 +40,18 @@ final class MessagesViewController: MSMessagesAppViewController {
 
     override func willBecomeActive(with conversation: MSConversation) {
         super.willBecomeActive(with: conversation)
-        if !model.isBusy && model.phase != .done { model.reset() }
-        watcher.start()
+        // Each Messages chat keeps its own history in Coax. These ids are
+        // made up by iOS for Coax alone; they aren't phone numbers or names.
+        let key = Self.chatKey(conversation)
+        let otherChat = model.chatKey != nil && model.chatKey != key
+        model.chatKey = key
+        if !model.isBusy && (model.phase != .done || otherChat) {
+            model.reset()
+            screen.reviewing = false
+        }
+        // A screenshot taken in the last minute is read straight away, so
+        // "screenshot, then open Coax" works as well as the other order.
+        watcher.start(lookBack: model.phase == .done ? 0 : 60)
         screen.hasPhotos = RecentScreenshots.newest() != nil || RecentScreenshots.hasAccess
     }
 
@@ -50,9 +60,15 @@ final class MessagesViewController: MSMessagesAppViewController {
         watcher.stop()
     }
 
+    static func chatKey(_ conversation: MSConversation) -> String {
+        let people = [conversation.localParticipantIdentifier] + conversation.remoteParticipantIdentifiers
+        return "messages:" + people.map(\.uuidString).sorted().joined(separator: ",")
+    }
+
     private func read(auto: Bool) {
         guard !model.isBusy else { return }
         screen.insertedID = nil
+        screen.reviewing = false
         screen.autoRead = auto
         let count = screen.screenshotCount
         Task { @MainActor in await model.readLatestScreenshots(count: count) }

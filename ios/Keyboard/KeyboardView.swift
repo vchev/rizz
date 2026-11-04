@@ -29,6 +29,11 @@ struct KeyboardView: View {
                     LetterKeys(state: state, actions: actions)
                 case .replies:
                     RepliesPanel(model: model, state: state, actions: actions)
+                case .review:
+                    ChatReview(model: model) {
+                        state.insertedID = nil
+                        state.panel = .replies
+                    }
                 case .fullAccessHelp:
                     FullAccessHelp()
                 }
@@ -185,14 +190,7 @@ private struct RepliesPanel: View {
             VStack(spacing: 6) {
                 ScrollView {
                     VStack(spacing: 6) {
-                        if let summary = readSummary {
-                            Text(summary)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 4)
-                        }
+                        ReadSummaryButton(model: model) { state.panel = .review }
                         ForEach(model.replies) { reply in
                             ReplyCard(reply: reply, inserted: state.insertedID == reply.id) {
                                 actions.insert(reply)
@@ -223,15 +221,6 @@ private struct RepliesPanel: View {
                 }
             }
         }
-    }
-}
-
-extension RepliesPanel {
-    /// Shows what Coax read, so people can check it found the right chat.
-    var readSummary: String? {
-        guard let last = model.messages.last(where: { $0.speaker == .them }) else { return nil }
-        let count = model.messages.count
-        return "Read \(count) message\(count == 1 ? "" : "s"). Their last: \u{201C}\(last.text)\u{201D}"
     }
 }
 
@@ -364,7 +353,7 @@ private struct LetterKeys: View {
                     .frame(width: 44)
                 }
                 row(rows[2])
-                SystemKey(systemImage: "delete.left", action: actions.deleteBackward)
+                SystemKey(systemImage: "delete.left", repeats: true, action: actions.deleteBackward)
                     .frame(width: 44)
             }
             HStack(spacing: 5) {
@@ -396,30 +385,89 @@ private struct LetterKeys: View {
     }
 }
 
+/// Fires on touch-down, like Apple's keys, instead of on lift. Optionally
+/// repeats while held (the delete key).
+private struct TouchDownKey<Label: View>: View {
+    var repeats = false
+    var action: () -> Void
+    @ViewBuilder var label: (_ pressed: Bool) -> Label
+    @State private var pressed = false
+    @State private var repeatTask: Task<Void, Never>?
+
+    var body: some View {
+        label(pressed)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard !pressed else { return }
+                        pressed = true
+                        UIDevice.current.playInputClick()
+                        action()
+                        if repeats { startRepeating() }
+                    }
+                    .onEnded { _ in
+                        pressed = false
+                        repeatTask?.cancel()
+                        repeatTask = nil
+                    }
+            )
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { action() }
+    }
+
+    private func startRepeating() {
+        repeatTask?.cancel()
+        repeatTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            while !Task.isCancelled && pressed {
+                action()
+                try? await Task.sleep(nanoseconds: 90_000_000)
+            }
+        }
+    }
+}
+
 private struct CharacterKey: View {
     var label: String
     var action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        TouchDownKey(action: action) { pressed in
             Text(label)
                 .font(label.count == 1 ? .title3 : .callout)
                 .frame(maxWidth: .infinity, minHeight: 42)
-                .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .background(pressed && label.count > 1 ? Color(.systemGray4) : Color(.systemBackground),
+                            in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .foregroundStyle(Color.primary)
                 .shadow(color: .black.opacity(0.25), radius: 0, x: 0, y: 1)
+                .overlay(alignment: .bottom) {
+                    // The pop-up letter above the key while it's held.
+                    if pressed && label.count == 1 {
+                        Text(label)
+                            .font(.system(size: 30))
+                            .frame(width: 46, height: 52)
+                            .background(Color(.systemBackground),
+                                        in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                            .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                            .offset(y: -46)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .zIndex(pressed ? 1 : 0)
         }
-        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
 private struct SystemKey: View {
     var systemImage: String? = nil
     var text: String? = nil
+    var repeats = false
     var action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        TouchDownKey(repeats: repeats, action: action) { pressed in
             Group {
                 if let systemImage {
                     Image(systemName: systemImage)
@@ -428,10 +476,11 @@ private struct SystemKey: View {
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 42)
-            .background(Color(.systemGray3), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .background(pressed ? Color(.systemBackground) : Color(.systemGray3),
+                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             .foregroundStyle(Color.primary)
             .shadow(color: .black.opacity(0.25), radius: 0, x: 0, y: 1)
         }
-        .buttonStyle(.plain)
+        .accessibilityLabel(text ?? systemImage ?? "")
     }
 }

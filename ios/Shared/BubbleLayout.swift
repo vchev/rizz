@@ -46,17 +46,66 @@ enum BubbleLayout {
             .filter { $0.onBubble != false && !$0.isFaint }
             .sorted { $0.box.minY < $1.box.minY }
 
-        return groupIntoBubbles(kept).compactMap { bubble in
+        return groupIntoBubbles(dropTinyText(kept)).compactMap { bubble in
             guard let speaker = speaker(for: bubble) else { return nil }
-            let text = bubble.lines.map(\.text).joined(separator: " ")
+            let lines = withoutQuotes(bubble.lines)
+            guard !lines.isEmpty else { return nil }
+            let text = lines.map(\.text).joined(separator: " ")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             return text.isEmpty ? nil : ChatMessage(speaker: speaker, text: text)
         }
     }
 
+    /// Text much smaller than the chat's own is inside a picture someone sent
+    /// (often a screenshot of another chat), not a message in this one.
+    static let tinyTextFactor: CGFloat = 0.55
+
+    static func dropTinyText(_ lines: [TextLine]) -> [TextLine] {
+        let heights = lines.map(\.box.height).sorted()
+        guard heights.count >= 3 else { return lines }
+        let median = heights[heights.count / 2]
+        return lines.filter { $0.box.height >= median * tinyTextFactor }
+    }
+
+    /// A quoted reply (Bumble, WhatsApp, Instagram) shows the quoted person's
+    /// name, then a shortened copy of their message ending in "…", above the
+    /// actual reply. Both lines are dropped: the name would muddle who's who,
+    /// and the quote belongs to the other person.
+    static func withoutQuotes(_ lines: [TextLine]) -> [TextLine] {
+        var out: [TextLine] = []
+        var i = 0
+        while i < lines.count {
+            if i + 1 < lines.count, isNameLike(lines[i].text), isShortened(lines[i + 1].text) {
+                i += 2
+                continue
+            }
+            out.append(lines[i])
+            i += 1
+        }
+        return out
+    }
+
+    /// "Chai", "Vanessa", "Mary Jo": one or two capitalized words, no punctuation.
+    static func isNameLike(_ raw: String) -> Bool {
+        let words = raw.trimmingCharacters(in: .whitespaces).split(separator: " ")
+        guard (1...2).contains(words.count) else { return false }
+        return words.allSatisfy { word in
+            guard let first = word.first, first.isUppercase, word.count <= 15 else { return false }
+            return word.allSatisfy { $0.isLetter || $0 == "-" || $0 == "'" }
+        }
+    }
+
+    static func isShortened(_ raw: String) -> Bool {
+        let text = raw.trimmingCharacters(in: .whitespaces)
+        return text.hasSuffix("…") || text.hasSuffix("...")
+    }
+
     /// Your bubbles touch the right margin; theirs don't (they may sit after a
     /// profile photo, so their left edge can be as far in as yours).
     static let rightMarginForYou: CGFloat = 0.06
+    /// Chat bubbles stop short of the screen's width; wider boxes are cards
+    /// quoting a profile (Hinge prompts and photos) or link previews.
+    static let maxBubbleWidth: CGFloat = 0.88
 
     /// Uses the bubble's own edges when they were measured, else the text's.
     static func speaker(for bubble: Bubble) -> Speaker? {
@@ -65,6 +114,7 @@ enum BubbleLayout {
         guard let minX = mins.min(), let maxX = maxes.max() else { return speaker(for: bubble.box) }
         let left = minX, right = 1 - maxX
         if abs(left - right) < 0.03 && left > 0.25 { return nil }   // a centered pill (date, notice)
+        if maxX - minX > maxBubbleWidth { return nil }   // a full-width card (Hinge prompt, link preview)
         return right < rightMarginForYou && left > right ? .you : .them
     }
 
