@@ -7,12 +7,15 @@ import UIKit
 enum RecentScreenshots {
     enum Failure: LocalizedError {
         case noAccess
+        case limitedAccess
         case noneFound
 
         var errorDescription: String? {
             switch self {
             case .noAccess:
                 return "Coax can't see your screenshots yet. Open the Coax app and tap Allow Photos access."
+            case .limitedAccess:
+                return "Coax can only see the photos you picked, so new screenshots are hidden. Open Settings › Coax › Photos and choose Full Access."
             case .noneFound:
                 return "No screenshots found. Take a screenshot of the chat, then try again."
             }
@@ -32,7 +35,11 @@ enum RecentScreenshots {
 
     /// The newest `count` screenshots, oldest first, downscaled for low memory use.
     static func latest(_ count: Int = 2, maxWidth: CGFloat = ScreenshotReader.maxWidth) async throws -> [UIImage] {
-        guard hasAccess else { throw Failure.noAccess }
+        switch PHPhotoLibrary.authorizationStatus(for: .readWrite) {
+        case .authorized: break
+        case .limited: throw Failure.limitedAccess
+        default: throw Failure.noAccess
+        }
 
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
