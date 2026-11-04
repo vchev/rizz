@@ -20,9 +20,10 @@ enum ReplyTone: String, Codable, CaseIterable, Identifiable {
 
 enum AppConfig {
     /// The hosted reply endpoint. nil = use sample replies.
-    static let replyAPIURL: URL? = nil
+    static let replyAPIURL: URL? = URL(string: "https://rizz-olive.vercel.app/api/reply")
     /// Sent as X-Coax-Token so only the app can use the endpoint. Read from the
-    /// CoaxAppToken Info.plist value, so it never sits in the code. nil = no header.
+    /// CoaxAppToken Info.plist value, set from ios/Secrets.xcconfig (git-ignored).
+    /// Anyone with the app can read it, so it's a speed bump; rotate before launch.
     static var replyAPIToken: String? {
         let value = Bundle.main.object(forInfoDictionaryKey: "CoaxAppToken") as? String
         return (value?.isEmpty ?? true) ? nil : value
@@ -33,7 +34,9 @@ enum AppConfig {
 
 enum ReplyServices {
     static func makeDefault() -> ReplyService {
-        if let url = AppConfig.replyAPIURL {
+        // UI tests use sample replies, so they don't depend on the server.
+        let uiTesting = ProcessInfo.processInfo.arguments.contains("-uiTesting")
+        if !uiTesting, let url = AppConfig.replyAPIURL {
             return HTTPReplyService(endpoint: url, token: AppConfig.replyAPIToken)
         }
         return SampleReplyService()
