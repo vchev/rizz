@@ -11,7 +11,8 @@ Vercel runs `api/reply.py` as a serverless function straight from GitHub (`verce
 
 | Name | What |
 | --- | --- |
-| `OPENROUTER_API_KEY` | The OpenRouter key. Never in git or chat. |
+| `ANTHROPIC_API_KEY` | A Claude API key (console.anthropic.com). Used first if set. Never in git or chat. |
+| `OPENROUTER_API_KEY` | An OpenRouter key, used when there is no Claude key. |
 | `COAX_APP_TOKEN` | A random string the app sends as `X-Coax-Token`. Blocks random callers. |
 
 The endpoint is `https://<project>.vercel.app/api/reply`. Opening it in a browser shows
@@ -27,6 +28,8 @@ python3 api/reply.py        # serves http://localhost:8787/api/reply, reads .env
 
 ## Privacy
 
-Chats are never stored or logged. Every model request asks OpenRouter for zero-data-retention
-providers only (`openrouter_provider` in config.json). Long threads are cut to the latest 80
+Chats are never stored or logged by us. Through OpenRouter, every request asks for
+zero-data-retention providers only (`openrouter_provider` in config.json). Through a Claude key,
+Anthropic does not train on the data but keeps it up to 30 days unless the account has zero data
+retention. Long threads are cut to the latest 80
 messages / 12,000 characters before they're sent.

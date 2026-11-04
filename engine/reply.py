@@ -8,7 +8,7 @@ Nothing is stored: the chat is only sent to the model and then forgotten.
 import json
 import re
 
-from engine import openrouter, prompts, settings
+from engine import anthropic_api, openrouter, prompts, settings
 
 TONES = ("funnier", "flirtier", "shorter")
 MAX_MESSAGES = 80          # only the most recent messages are sent to the model
@@ -93,8 +93,11 @@ def pick(replies, n):
 
 
 def model_call(system, user, config):
+    name, key = settings.provider()
+    if name == "anthropic":
+        return anthropic_api.chat(key, config.get("anthropic_model", "claude-haiku-5-5"), system, user)
     return openrouter.chat(
-        settings.api_key(),
+        key,
         config["model"],
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
         provider=config.get("openrouter_provider"),

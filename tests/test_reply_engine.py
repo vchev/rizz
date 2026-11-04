@@ -109,11 +109,47 @@ class Suggest(unittest.TestCase):
             reply.suggest_replies(CHAT, n=50, call=fake("{}"), config=CONFIG)
 
     def test_model_call_sends_zdr(self):
-        with mock.patch.object(reply.settings, "api_key", return_value="k"), \
+        with mock.patch.object(reply.settings, "provider", return_value=("openrouter", "k")), \
                 mock.patch.object(openrouter, "chat", return_value='{"replies": []}') as chat:
             reply.model_call("sys", "usr", CONFIG)
         self.assertEqual(chat.call_args.kwargs["provider"], {"zdr": True})
         self.assertEqual(chat.call_args.args[1], "test/model")
+
+
+    def test_claude_key_uses_claude_api(self):
+        with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "a", "OPENROUTER_API_KEY": "o"}):
+            self.assertEqual(reply.settings.provider(), ("anthropic", "a"))
+        cfg = dict(CONFIG, anthropic_model="claude-haiku-5-5")
+        with mock.patch.object(reply.settings, "provider", return_value=("anthropic", "k")), \
+                mock.patch.object(reply.anthropic_api, "chat", return_value="{}") as chat:
+            reply.model_call("sys", "usr", cfg)
+        self.assertEqual(chat.call_args.args[:4], ("k", "claude-haiku-5-5", "sys", "usr"))
+
+    def test_claude_request_shape(self):
+        sent = {}
+
+        class Resp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
+            def read(self):
+                return json.dumps({"stop_reason": "end_turn", "content": [
+                    {"type": "thinking", "thinking": ""}, {"type": "text", "text": '{"replies": ["hi"]}'}]}).encode()
+
+        def urlopen(req, timeout):
+            sent["body"] = json.loads(req.data)
+            sent["headers"] = dict(req.header_items())
+            return Resp()
+        from engine import anthropic_api
+        with mock.patch.object(anthropic_api.urllib.request, "urlopen", urlopen):
+            out = anthropic_api.chat("k", "claude-haiku-5-5", "sys", "usr")
+        self.assertEqual(out, '{"replies": ["hi"]}')
+        self.assertNotIn("temperature", sent["body"])
+        self.assertEqual(sent["body"]["system"], "sys")
+        self.assertEqual(sent["headers"]["Anthropic-version"], "2026-10-21")
 
 
 class Api(unittest.TestCase):
