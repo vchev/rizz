@@ -25,7 +25,9 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO | tail -n 60
           exit ${PIPESTATUS[0]}
-      - name: Run unit tests
+      - name: Run unit and UI tests
+        env:
+          TEST_RUNNER_SCREENSHOT_DIR: ${{ github.workspace }}/ui-screenshots
         run: |
           SIM=$(xcrun simctl list devices available | grep -m1 -o 'iPhone [^(]*' | sed 's/ *$//')
           echo "Using simulator: $SIM"
@@ -35,3 +37,10 @@ jobs:
             -destination "platform=iOS Simulator,name=$SIM" \
             CODE_SIGNING_ALLOWED=NO | tail -n 80
           exit ${PIPESTATUS[0]}
+      - name: Keep the app screenshots from the UI test
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: ui-screenshots/
+          if-no-files-found: ignore

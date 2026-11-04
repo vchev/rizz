@@ -27,6 +27,7 @@ app_group = add_group(project, 'ReplyAssistant')
 ext_group = add_group(project, 'ShareExtension')
 kbd_group = add_group(project, 'Keyboard')
 test_group = add_group(project, 'ReplyAssistantTests')
+ui_test_group = add_group(project, 'ReplyAssistantUITests')
 
 shared_refs = swift_files('Shared').map { |f| shared_group.new_file(File.basename(f)) }
 app_refs = swift_files('ReplyAssistant').map { |f| app_group.new_file(File.basename(f)) }
@@ -36,6 +37,7 @@ ext_group.new_file('Info.plist')
 kbd_refs = swift_files('Keyboard').map { |f| kbd_group.new_file(File.basename(f)) }
 kbd_group.new_file('Info.plist')
 test_refs = swift_files('ReplyAssistantTests').map { |f| test_group.new_file(File.basename(f)) }
+ui_test_refs = swift_files('ReplyAssistantUITests').map { |f| ui_test_group.new_file(File.basename(f)) }
 
 common = {
   'SWIFT_VERSION' => '5.0',
@@ -115,7 +117,7 @@ end
 
 # Unit tests for the pure layout logic (no app host needed)
 tests = project.new_target(:unit_test_bundle, 'ReplyAssistantTests', :ios, IOS_VERSION)
-layout_logic = shared_refs.select { |r| %w[BubbleLayout.swift Conversation.swift].include?(r.path) }
+layout_logic = shared_refs.select { |r| %w[BubbleLayout.swift Conversation.swift ScreenshotReader.swift].include?(r.path) }
 tests.add_file_references(layout_logic + test_refs)
 tests.build_configurations.each do |c|
   c.build_settings.merge!(common)
@@ -126,11 +128,26 @@ tests.build_configurations.each do |c|
   c.build_settings.delete('INFOPLIST_FILE')
 end
 
+# UI tests: run the real app in the simulator
+ui_tests = project.new_target(:ui_test_bundle, 'ReplyAssistantUITests', :ios, IOS_VERSION)
+ui_tests.add_file_references(ui_test_refs)
+ui_tests.add_dependency(app)
+ui_tests.build_configurations.each do |c|
+  c.build_settings.merge!(common)
+  c.build_settings.merge!(
+    'PRODUCT_BUNDLE_IDENTIFIER' => "#{BUNDLE_ID}.UITests",
+    'PRODUCT_NAME' => '$(TARGET_NAME)',
+    'TEST_TARGET_NAME' => 'ReplyAssistant',
+  )
+  c.build_settings.delete('INFOPLIST_FILE')
+end
+
 project.save
 
 # Shared scheme: Run builds the app (which embeds the extension); Test runs the unit tests.
 scheme = Xcodeproj::XCScheme.new
 scheme.configure_with_targets(app, tests, launch_target: true)
+scheme.add_test_target(ui_tests)
 scheme.save_as(PROJECT_PATH, 'ReplyAssistant', true)
 
 puts "Wrote #{PROJECT_PATH}"
