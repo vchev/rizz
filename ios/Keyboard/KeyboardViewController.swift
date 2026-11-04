@@ -39,6 +39,10 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // A keyboard-style input view, so keys can play the standard click.
+        let clickView = ClickingInputView(frame: .zero, inputViewStyle: .keyboard)
+        clickView.allowsSelfSizing = true
+        inputView = clickView
         watcher.onNewScreenshot = { [weak self] in self?.newScreenshotTaken() }
 
         let root = KeyboardView(
@@ -48,8 +52,8 @@ final class KeyboardViewController: UIInputViewController {
                 getRepliesFromScreenshots: { [weak self] in self?.readScreenshots(auto: false) },
                 getReplies: { [weak self] in self?.readClipboard() },
                 insert: { [weak self] reply in self?.insert(reply) },
-                type: { [weak self] text in self?.textDocumentProxy.insertText(text) },
-                deleteBackward: { [weak self] in self?.textDocumentProxy.deleteBackward() },
+                type: { [weak self] text in self?.type(text) },
+                deleteBackward: { [weak self] in self?.deleteBackward() },
                 nextKeyboard: { [weak self] in self?.advanceToNextInputMode() }
             )
         )
@@ -76,6 +80,7 @@ final class KeyboardViewController: UIInputViewController {
         refreshState()
         showShortcutReplies()
         startWatching()
+        updateAutoCapital()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -121,10 +126,48 @@ final class KeyboardViewController: UIInputViewController {
         if state.showsGlobe != needsInputModeSwitchKey { state.showsGlobe = needsInputModeSwitchKey }
     }
 
+    /// After a reply goes in, hand back to the user's usual keyboard, which
+    /// types and autocorrects better than ours. Coax is for getting replies.
+    static let handBackAfterReply = false   // Vanessa chose to stay on Coax (Nov 4)
+
     private func insert(_ reply: ReplySuggestion) {
         textDocumentProxy.insertText(reply.text)
         state.insertedID = reply.id
         state.shifted = false
+        guard Self.handBackAfterReply else { return }
+        // A short pause so the green check shows before the keyboard changes.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self, self.state.insertedID == reply.id else { return }
+            self.advanceToNextInputMode()
+        }
+    }
+
+    // MARK: Typing
+
+    private func type(_ text: String) {
+        watcher.userIsTyping()
+        let proxy = textDocumentProxy
+        // Double space after a word types ". ", like Apple's keyboard.
+        if text == " ", let before = proxy.documentContextBeforeInput,
+           before.hasSuffix(" "), let last = before.dropLast().last, last.isLetter || last.isNumber {
+            proxy.deleteBackward()
+            proxy.insertText(". ")
+        } else {
+            proxy.insertText(text)
+        }
+        updateAutoCapital()
+    }
+
+    private func deleteBackward() {
+        watcher.userIsTyping()
+        textDocumentProxy.deleteBackward()
+        updateAutoCapital()
+    }
+
+    /// Capital letter at the start, and after ". ", "? " or "! ".
+    private func updateAutoCapital() {
+        let shouldShift = Typing.startsSentence(textDocumentProxy.documentContextBeforeInput)
+        if state.shifted != shouldShift { state.shifted = shouldShift }
     }
 
     private func readScreenshots(auto: Bool) {
@@ -152,5 +195,23 @@ final class KeyboardViewController: UIInputViewController {
                 model.phase = .failed("Nothing copied yet. Long-press their message and tap Copy, or take a screenshot, tap it, and tap Copy.")
             }
         }
+    }
+}
+
+/// UIInputView that lets `UIDevice.current.playInputClick()` play the key click
+/// (heard only when Keyboard Clicks is on in Settings › Sounds & Haptics).
+final class ClickingInputView: UIInputView, UIInputViewAudioFeedback {
+    var enableInputClicksWhenVisible: Bool { true }
+}
+
+enum Typing {
+    /// True when the next letter starts a sentence.
+    static func startsSentence(_ before: String?) -> Bool {
+        guard let before, !before.isEmpty else { return true }
+        let trimmed = before.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty { return true }
+        if before.last == "\n" { return true }
+        guard before.last == " ", let end = trimmed.last else { return false }
+        return ".?!".contains(end)
     }
 }
