@@ -10,7 +10,7 @@ struct GetCoaxRepliesIntent: AppIntent {
         "Reads a chat screenshot (on your phone) or some text, suggests replies, and copies the best one.")
     static var openAppWhenRun = false
 
-    @Parameter(title: "Screenshot", supportedContentTypes: [.image])
+    @Parameter(title: "Screenshot")
     var screenshot: IntentFile?
 
     @Parameter(title: "Text")

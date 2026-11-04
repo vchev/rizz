@@ -37,7 +37,9 @@ struct ContentView: View {
         .task {
             // Ask for Photos up front: the keyboard can't ask, and it needs
             // this to read your latest screenshots.
-            if PHPhotoLibrary.authorizationStatus(for: .readWrite) == .notDetermined {
+            // Skipped in UI tests, where the system prompt would block the run.
+            let uiTesting = ProcessInfo.processInfo.arguments.contains("-uiTesting")
+            if !uiTesting, PHPhotoLibrary.authorizationStatus(for: .readWrite) == .notDetermined {
                 _ = await RecentScreenshots.requestAccess()
             }
         }
