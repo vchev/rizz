@@ -1,3 +1,4 @@
+import Photos
 import PhotosUI
 import SwiftUI
 import UIKit
@@ -32,6 +33,13 @@ struct ContentView: View {
         .onChange(of: pickedItems) { _, items in
             guard !items.isEmpty else { return }
             Task { await model.read(await loadImages(items)) }
+        }
+        .task {
+            // Ask for Photos up front: the keyboard can't ask, and it needs
+            // this to read your latest screenshots.
+            if PHPhotoLibrary.authorizationStatus(for: .readWrite) == .notDetermined {
+                _ = await RecentScreenshots.requestAccess()
+            }
         }
         .alert("No screenshot on the clipboard", isPresented: $pasteFailed) {
             Button("OK", role: .cancel) {}
