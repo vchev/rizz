@@ -1,0 +1,11 @@
+{
+ "id": "sample-02",
+ "app": "bumble",
+ "match": "",
+ "profile_notes": "Made-up one-message opener for offline tests.",
+ "messages": [
+  {"from": "them", "text": "Hey! Two truths and a lie, go"}
+ ],
+ "actual_reply": ["I've been to 30 countries, I can't swim, I once met Beyoncé"],
+ "source": "made up"
+}

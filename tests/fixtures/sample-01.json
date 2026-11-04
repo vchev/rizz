@@ -1,0 +1,14 @@
+{
+ "id": "sample-01",
+ "app": "hinge",
+ "match": "",
+ "profile_notes": "Made-up conversation for offline tests. Not a real person.",
+ "messages": [
+  {"from": "them", "text": "ok your hiking photo is elite, where is that"},
+  {"from": "you", "text": "haha thank u!! that's mission peak"},
+  {"from": "you", "text": "do u hike?"},
+  {"from": "them", "text": "I try to! mostly I just go for the views and the snacks at the top"}
+ ],
+ "actual_reply": ["honestly the snacks are the main event", "what's your go-to trail snack"],
+ "source": "made up"
+}
