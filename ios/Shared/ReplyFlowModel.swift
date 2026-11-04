@@ -19,12 +19,45 @@ final class ReplyFlowModel: ObservableObject {
     @Published var editedSinceReplies = false
     /// The screenshots being read, shown small while Coax reads them.
     @Published var previews: [UIImage] = []
+    /// How many messages the latest screenshots showed. `messages` can hold
+    /// more: the earlier part of the same chat, saved on the phone.
+    @Published var readCount = 0
 
     let service: ReplyService
     private let reader = ScreenshotReader()
+    /// Where chats are kept between uses. nil = don't keep them (tests).
+    let store: ChatStore?
+    /// Ties reads to one chat when the caller knows which (the Messages conversation).
+    var chatKey: String?
+    private var chatID: String?
 
-    init(service: ReplyService = ReplyServices.makeDefault()) {
+    /// The most recent messages sent for replies (the server reads up to 80).
+    nonisolated static let maxMessagesSent = 60
+
+    init(service: ReplyService = ReplyServices.makeDefault(), store: ChatStore? = nil) {
         self.service = service
+        self.store = store
+    }
+
+    /// Saved messages from before the latest screenshots.
+    var earlierCount: Int { max(messages.count - readCount, 0) }
+
+    /// Keeps what was just read and joins it to the saved chat it belongs to.
+    private func use(_ read: [ChatMessage]) {
+        readCount = read.count
+        guard let store, !read.isEmpty else {
+            messages = read
+            chatID = nil
+            return
+        }
+        let chat = store.remember(read, key: chatKey)
+        chatID = chat.id
+        messages = chat.messages
+    }
+
+    private func saveEdits() {
+        guard let store, let chatID else { return }
+        store.update(chatID, messages: messages)
     }
 
     var isBusy: Bool { phase == .reading || phase == .generating }
@@ -42,7 +75,7 @@ final class ReplyFlowModel: ObservableObject {
             for image in images {
                 all = Transcript.append(try await reader.read(image), to: all)
             }
-            messages = all
+            use(all)
             guard !all.isEmpty else {
                 phase = .failed("Couldn't find any messages in that screenshot. Try one that shows the chat bubbles.")
                 return
@@ -67,7 +100,7 @@ final class ReplyFlowModel: ObservableObject {
                 parts.append(try await reader.read(image))
             }
             let all = Transcript.joinBestOrder(parts)
-            messages = all
+            use(all)
             guard !all.isEmpty else {
                 phase = .failed("Couldn't find chat messages in your last screenshots. Screenshot the chat and try again.")
                 return
@@ -90,6 +123,8 @@ final class ReplyFlowModel: ObservableObject {
         }
         replies = []
         messages = [ChatMessage(speaker: .them, text: lines.joined(separator: " "))]
+        readCount = 1
+        chatID = nil
         await generate()
     }
 
@@ -105,6 +140,8 @@ final class ReplyFlowModel: ObservableObject {
     func tryExample() async {
         replies = []
         messages = Self.exampleChat
+        readCount = messages.count
+        chatID = nil
         await generate()
     }
 
@@ -115,7 +152,7 @@ final class ReplyFlowModel: ObservableObject {
         }
         phase = .generating
         do {
-            replies = try await service.suggestReplies(for: messages, platform: "imessage", tone: tone)
+            replies = try await service.suggestReplies(for: Array(messages.suffix(Self.maxMessagesSent)), platform: "imessage", tone: tone)
             editedSinceReplies = false
             phase = .done
         } catch {
@@ -127,16 +164,22 @@ final class ReplyFlowModel: ObservableObject {
         guard let i = messages.firstIndex(where: { $0.id == message.id }) else { return }
         messages[i].speaker = messages[i].speaker.flipped
         editedSinceReplies = true
+        saveEdits()
     }
 
     func delete(at offsets: IndexSet) {
+        let removedRead = offsets.filter { $0 >= earlierCount }.count
         messages.remove(atOffsets: offsets)
+        readCount = max(readCount - removedRead, 0)
         editedSinceReplies = true
+        saveEdits()
     }
 
     /// Replies the Back Tap shortcut already made.
     func show(_ pending: PendingReplies) {
         messages = pending.messages
+        readCount = min(pending.readCount ?? pending.messages.count, pending.messages.count)
+        chatID = nil
         replies = pending.replies
         editedSinceReplies = false
         phase = .done
@@ -147,6 +190,8 @@ final class ReplyFlowModel: ObservableObject {
         phase = .waiting
         messages = []
         replies = []
+        readCount = 0
+        chatID = nil
         editedSinceReplies = false
     }
 }

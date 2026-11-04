@@ -23,7 +23,7 @@ final class KeyboardState: ObservableObject {
         didSet { UserDefaults.standard.set(screenshotCount, forKey: "screenshotCount") }
     }
 
-    enum Panel { case keys, replies, fullAccessHelp }
+    enum Panel { case keys, replies, review, fullAccessHelp }
 }
 
 /// The Coax keyboard: a plain typing keyboard plus a reply bar. Copy their
@@ -33,7 +33,7 @@ final class KeyboardState: ObservableObject {
 final class KeyboardViewController: UIInputViewController {
     static let height: CGFloat = 290
 
-    private let model = ReplyFlowModel()
+    private let model = ReplyFlowModel(store: ChatStore.forUse)
     private let state = KeyboardState()
     private let watcher = ScreenshotWatcher()
 

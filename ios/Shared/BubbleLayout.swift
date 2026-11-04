@@ -57,6 +57,9 @@ enum BubbleLayout {
     /// Your bubbles touch the right margin; theirs don't (they may sit after a
     /// profile photo, so their left edge can be as far in as yours).
     static let rightMarginForYou: CGFloat = 0.06
+    /// Chat bubbles stop short of the screen's width; wider boxes are cards
+    /// quoting a profile (Hinge prompts and photos) or link previews.
+    static let maxBubbleWidth: CGFloat = 0.88
 
     /// Uses the bubble's own edges when they were measured, else the text's.
     static func speaker(for bubble: Bubble) -> Speaker? {
@@ -65,6 +68,7 @@ enum BubbleLayout {
         guard let minX = mins.min(), let maxX = maxes.max() else { return speaker(for: bubble.box) }
         let left = minX, right = 1 - maxX
         if abs(left - right) < 0.03 && left > 0.25 { return nil }   // a centered pill (date, notice)
+        if maxX - minX > maxBubbleWidth { return nil }   // a full-width card (Hinge prompt, link preview)
         return right < rightMarginForYou && left > right ? .you : .them
     }
 

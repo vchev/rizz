@@ -30,6 +30,9 @@ enum AppConfig {
     }
     /// How many replies to ask for (matches replies_per_request in config.json).
     static let repliesPerRequest = 3
+    /// The ready-made Back Tap shortcut (Take Screenshot, then Get Coax Replies),
+    /// shared from iCloud. nil until it's made; the app then shows the steps instead.
+    static let backTapShortcutLink: URL? = nil
 }
 
 enum ReplyServices {

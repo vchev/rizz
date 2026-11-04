@@ -5,6 +5,8 @@ final class MessagesScreenState: ObservableObject {
     @Published var insertedID: UUID?
     @Published var autoRead = false
     @Published var hasPhotos = true
+    /// Showing who said what instead of the replies.
+    @Published var reviewing = false
     /// Shares the keyboard's choice name, but each extension remembers its own.
     @Published var screenshotCount: Int = {
         let saved = UserDefaults.standard.integer(forKey: "screenshotCount")
@@ -116,9 +118,18 @@ struct MessagesView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+        case .done where screen.reviewing:
+            ChatReview(model: model) {
+                screen.insertedID = nil
+                screen.reviewing = false
+            }
         case .done:
             ScrollView {
                 VStack(spacing: 6) {
+                    ReadSummaryButton(model: model) {
+                        screen.reviewing = true
+                        actions.expand()
+                    }
                     ForEach(model.replies) { reply in
                         replyCard(reply)
                     }

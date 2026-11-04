@@ -29,6 +29,11 @@ struct KeyboardView: View {
                     LetterKeys(state: state, actions: actions)
                 case .replies:
                     RepliesPanel(model: model, state: state, actions: actions)
+                case .review:
+                    ChatReview(model: model) {
+                        state.insertedID = nil
+                        state.panel = .replies
+                    }
                 case .fullAccessHelp:
                     FullAccessHelp()
                 }
@@ -185,14 +190,7 @@ private struct RepliesPanel: View {
             VStack(spacing: 6) {
                 ScrollView {
                     VStack(spacing: 6) {
-                        if let summary = readSummary {
-                            Text(summary)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 4)
-                        }
+                        ReadSummaryButton(model: model) { state.panel = .review }
                         ForEach(model.replies) { reply in
                             ReplyCard(reply: reply, inserted: state.insertedID == reply.id) {
                                 actions.insert(reply)
@@ -223,15 +221,6 @@ private struct RepliesPanel: View {
                 }
             }
         }
-    }
-}
-
-extension RepliesPanel {
-    /// Shows what Coax read, so people can check it found the right chat.
-    var readSummary: String? {
-        guard let last = model.messages.last(where: { $0.speaker == .them }) else { return nil }
-        let count = model.messages.count
-        return "Read \(count) message\(count == 1 ? "" : "s"). Their last: \u{201C}\(last.text)\u{201D}"
     }
 }
 

@@ -139,4 +139,71 @@ final class ScreenshotReaderTests: XCTestCase {
         XCTAssertEqual(messages.map(\.speaker), [.you, .you, .them, .them],
                        "Read: \(messages.map { "\($0.speaker): \($0.text)" })")
     }
+
+    /// The tricky cases from the plan: long wrapped messages, a full-width
+    /// Hinge-style prompt card, a photo, and a heart reaction on a bubble.
+    func testEdgeCasesLongMessagesPromptCardPhotoAndReaction() async throws {
+        let size = CGSize(width: 1179, height: 2556)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let longThem = "okay so the trip was amazing, we hiked to the glacier on day two and my legs still hate me, then we found this tiny ramen place in town"
+        let longYou = "that sounds unreal, I have been wanting to do that hike for years but I keep chickening out because of the drive up there"
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            var y: CGFloat = 330
+
+            // A full-width card quoting a profile prompt.
+            let card = CGRect(x: 24, y: y, width: size.width - 48, height: 260)
+            UIColor(red: 0.95, green: 0.93, blue: 0.90, alpha: 1).setFill()
+            UIBezierPath(roundedRect: card, cornerRadius: 30).fill()
+            let cardText: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 44, weight: .semibold),
+                                                           .foregroundColor: UIColor.black]
+            ("My most irrational fear" as NSString).draw(at: CGPoint(x: 80, y: y + 50), withAttributes: cardText)
+            ("Geese. Absolutely geese." as NSString).draw(at: CGPoint(x: 80, y: y + 140), withAttributes: cardText)
+            y += 300
+
+            func bubble(_ text: String, you: Bool, heart: Bool = false) {
+                let attrs: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 51),
+                                                            .foregroundColor: you ? UIColor.white : UIColor.black]
+                let ns = text as NSString
+                let bounds = ns.boundingRect(with: CGSize(width: size.width * 0.62, height: .greatestFiniteMagnitude),
+                                             options: [.usesLineFragmentOrigin], attributes: attrs, context: nil)
+                let pad: CGFloat = 36
+                let w = ceil(bounds.width) + pad * 2, h = ceil(bounds.height) + pad
+                let rect = CGRect(x: you ? size.width - 48 - w : 48, y: y, width: w, height: h)
+                (you ? UIColor.systemBlue : UIColor(white: 0.9, alpha: 1)).setFill()
+                UIBezierPath(roundedRect: rect, cornerRadius: 54).fill()
+                ns.draw(with: rect.insetBy(dx: pad, dy: pad / 2), options: [.usesLineFragmentOrigin],
+                        attributes: attrs, context: nil)
+                if heart {
+                    let badge = CGRect(x: rect.maxX - 40, y: rect.minY - 40, width: 84, height: 84)
+                    UIColor(white: 0.93, alpha: 1).setFill()
+                    UIBezierPath(ovalIn: badge).fill()
+                    ("\u{2764}\u{FE0F}" as NSString).draw(at: CGPoint(x: badge.minX + 16, y: badge.minY + 12),
+                                                         withAttributes: [.font: UIFont.systemFont(ofSize: 44)])
+                }
+                y += h + 40
+            }
+
+            bubble("ok but why geese", you: false)
+            bubble(longThem, you: false, heart: true)
+            // A photo they sent: no text, just a picture.
+            let photo = CGRect(x: 48, y: y, width: 520, height: 400)
+            UIColor(red: 0.2, green: 0.5, blue: 0.3, alpha: 1).setFill()
+            UIBezierPath(roundedRect: photo, cornerRadius: 40).fill()
+            UIColor(red: 0.9, green: 0.8, blue: 0.3, alpha: 1).setFill()
+            UIBezierPath(ovalIn: photo.insetBy(dx: 180, dy: 120)).fill()
+            y += 440
+            bubble(longYou, you: true)
+        }
+        let messages = try await ScreenshotReader().read(image)
+        let read = messages.map { "\($0.speaker): \($0.text)" }
+        XCTAssertEqual(messages.map(\.speaker), [.them, .them, .you], "Read: \(read)")
+        guard messages.count == 3 else { return }
+        XCTAssertTrue(words(messages[1].text).contains("glacier"), "Read: \(read)")
+        XCTAssertTrue(words(messages[1].text).contains("ramen place"), "A long bubble should stay one message: \(read)")
+        XCTAssertTrue(words(messages[2].text).contains("chickening out"), "Read: \(read)")
+        XCTAssertFalse(messages.contains { words($0.text).contains("irrational fear") }, "Prompt card kept: \(read)")
+    }
 }

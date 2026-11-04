@@ -11,6 +11,8 @@ struct PendingReplies: Codable {
     var messages: [ChatMessage]
     var replies: [ReplySuggestion]
     var created: Date
+    /// How many of `messages` the screenshot showed (the rest were saved earlier).
+    var readCount: Int? = nil
 
     static let pasteboardType = "com.vchev.coax.replies"
     /// Older replies are ignored: they were probably for another chat.
@@ -18,9 +20,9 @@ struct PendingReplies: Codable {
     private static let takenKey = "pendingRepliesTaken"
 
     @MainActor
-    static func publish(messages: [ChatMessage], replies: [ReplySuggestion]) {
-        guard let best = replies.first,
-              let data = try? JSONEncoder().encode(PendingReplies(messages: messages, replies: replies, created: Date()))
+    static func publish(messages: [ChatMessage], replies: [ReplySuggestion], readCount: Int? = nil) {
+        let pending = PendingReplies(messages: messages, replies: replies, created: Date(), readCount: readCount)
+        guard let best = replies.first, let data = try? JSONEncoder().encode(pending)
         else { return }
         UIPasteboard.general.setItems([["public.utf8-plain-text": best.text, pasteboardType: data]])
     }
