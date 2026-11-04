@@ -2,9 +2,9 @@
 
 What it does today:
 
-- **The keyboard (main way to use it):** copy their message (or a screenshot of the chat), switch to the Reply Assistant keyboard, tap **Get replies from what I copied**, and tap a reply to type it into the message box. Funnier / Flirtier / Shorter redo the replies. Typing works without Full Access; replies need it.
+- **The keyboard (main way to use it):** copy their message (or a screenshot of the chat), switch to the Coax keyboard, tap **Get replies from what I copied**, and tap a reply to type it into the message box. Funnier / Flirtier / Shorter redo the replies. Typing works without Full Access; replies need it.
 - **In the app:** pick up to 5 screenshots of a chat (or paste one), and it shows 3 suggested replies. Tap a reply to copy it.
-- **From the share sheet:** take a screenshot, tap Share, choose **Reply Assistant**, and the replies appear right there.
+- **From the share sheet:** take a screenshot, tap Share, choose **Coax**, and the replies appear right there.
 - It reads the screenshot on the phone with Apple's text recognition. Right-hand bubbles are "you", left-hand are "them", centered text (times, "Delivered") is skipped. If it gets one wrong, tap that message to switch who sent it.
 - **Replies are samples for now.** The app talks to the reply engine through one switch (`AppConfig.replyAPIURL` in `Shared/ReplyService.swift`). When the engine is hosted, that gets set and real replies appear.
 
@@ -53,12 +53,12 @@ You need a Mac, your iPhone, and its cable. A free Apple ID is enough for now; t
 
 **7. Turn on the keyboard** (once)
 1. Open the app and tap **Open Settings**, then **Keyboards**.
-2. Turn on **Reply Assistant**, then **Allow Full Access**, and tap **Allow** on the warning.
-3. In any chat, tap the message box, hold the 🌐 key, and pick **Reply Assistant**.
+2. Turn on **Coax**, then **Allow Full Access**, and tap **Allow** on the warning.
+3. In any chat, tap the message box, hold the 🌐 key, and pick **Coax**.
 
 **8. Add it to the share sheet** (optional, once)
 1. Take a screenshot of a chat, tap the little preview, then tap the **Share** button.
-2. Scroll the row of app icons to the end, tap **More**, then **Edit**, and turn on **Reply Assistant**.
+2. Scroll the row of app icons to the end, tap **More**, then **Edit**, and turn on **Coax**.
 
 With a free Apple ID the app stops opening after 7 days. Plug in and click **▶** again to refresh it. This goes away with TestFlight.
 

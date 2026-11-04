@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-/// The "Reply Assistant" item in the share sheet. Reads the shared
+/// The "Coax" item in the share sheet. Reads the shared
 /// screenshot(s) and shows reply suggestions right there, ready to copy.
 final class ShareViewController: UIViewController {
     private let model = ReplyFlowModel()
@@ -12,7 +12,7 @@ final class ShareViewController: UIViewController {
 
         let root = NavigationStack {
             ReplyFlowView(model: model)
-                .navigationTitle("Reply Assistant")
+                .navigationTitle("Coax")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
