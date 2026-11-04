@@ -7,6 +7,7 @@ struct ContentView: View {
     @StateObject private var model = ReplyFlowModel(store: ChatStore.forUse)
     @State private var pickedItems: [PhotosPickerItem] = []
     @State private var pasteFailed = false
+    @State private var showVoice = false
     /// Test builds only: runs first-time setup again (see ReplyAssistantApp).
     var onReplaySetup: (() -> Void)? = nil
 
@@ -25,6 +26,13 @@ struct ContentView: View {
                 if model.phase == .waiting, let onReplaySetup {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Show setup again") { onReplaySetup() }
+                    }
+                }
+                // Sprint 3 preview, test builds only: the voice profile.
+                if model.phase == .waiting {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Voice") { showVoice = true }
+                            .accessibilityIdentifier("voiceProfileButton")
                     }
                 }
                 #endif
@@ -52,6 +60,7 @@ struct ContentView: View {
                 _ = await RecentScreenshots.requestAccess()
             }
         }
+        .sheet(isPresented: $showVoice) { VoiceProfileView() }
         .alert("No screenshot on the clipboard", isPresented: $pasteFailed) {
             Button("OK", role: .cancel) {}
         } message: {
