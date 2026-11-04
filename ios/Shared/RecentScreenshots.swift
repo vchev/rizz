@@ -6,14 +6,14 @@ import UIKit
 /// read from them is sent, and only when the user taps the button.
 enum RecentScreenshots {
     enum Failure: LocalizedError {
-        case noAccess
+        case noAccess(Int)   // the Photos status iOS reported, to tell device cases apart
         case limitedAccess
         case noneFound
 
         var errorDescription: String? {
             switch self {
-            case .noAccess:
-                return "Coax can't see your screenshots yet. Open the Coax app and tap Allow Photos access."
+            case .noAccess(let status):
+                return "Coax can't see your screenshots yet (code \(status)). Use the Back Tap shortcut, or copy their message and tap What I copied."
             case .limitedAccess:
                 return "Coax can only see the photos you picked, so new screenshots are hidden. Open Settings › Coax › Photos and choose Full Access."
             case .noneFound:
@@ -35,11 +35,10 @@ enum RecentScreenshots {
 
     /// The newest `count` screenshots, oldest first, downscaled for low memory use.
     static func latest(_ count: Int = 2, maxWidth: CGFloat = ScreenshotReader.maxWidth) async throws -> [UIImage] {
-        switch PHPhotoLibrary.authorizationStatus(for: .readWrite) {
-        case .authorized: break
-        case .limited: throw Failure.limitedAccess
-        default: throw Failure.noAccess
-        }
+        // Inside the keyboard, iOS may report a status that differs from the
+        // app's, so try the fetch anyway and only blame access if it finds nothing.
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        if status == .limited { throw Failure.limitedAccess }
 
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
@@ -57,7 +56,9 @@ enum RecentScreenshots {
 
         var newestFirst: [PHAsset] = []
         assets.enumerateObjects { asset, _, _ in newestFirst.append(asset) }
-        guard !newestFirst.isEmpty else { throw Failure.noneFound }
+        guard !newestFirst.isEmpty else {
+            throw status == .authorized ? Failure.noneFound : Failure.noAccess(status.rawValue)
+        }
 
         var images: [UIImage] = []
         for asset in newestFirst.reversed() {
