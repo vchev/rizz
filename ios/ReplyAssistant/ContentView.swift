@@ -55,9 +55,9 @@ struct ContentView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("How to use it").font(.headline)
-                    Step(number: 1, text: "In Hinge, Messages or any chat, long-press their message and tap Copy. Or take a screenshot, tap it, and tap Copy.")
+                    Step(number: 1, text: "In Hinge, Messages or any chat, scroll up one screen and take a screenshot, then scroll back down and take another.")
                     Step(number: 2, text: "Tap the message box, then hold the 🌐 key and pick Coax.")
-                    Step(number: 3, text: "Tap Get replies from what I copied, then tap a reply to type it in.")
+                    Step(number: 3, text: "Tap the screenshots button (tap the number to pick 1, 2 or 3), then tap a reply to type it in.")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -115,13 +115,25 @@ struct ContentView: View {
 
 private struct KeyboardSetupCard: View {
     @Environment(\.openURL) private var openURL
+    @State private var photosAllowed = RecentScreenshots.hasAccess
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Turn on the keyboard (once)").font(.headline)
             Step(number: 1, text: "Tap Open Settings below, then Keyboards.")
             Step(number: 2, text: "Turn on Coax.")
-            Step(number: 3, text: "Turn on Allow Full Access. iPhone shows a warning for every keyboard that goes online. We need it to read what you copy and fetch replies. Nothing you type is recorded or sent; only what you copied goes out, and only when you tap Get replies.")
+            Step(number: 3, text: "Turn on Allow Full Access. iPhone shows a warning for every keyboard that goes online. We need it to read what you copy and fetch replies. Nothing you type is recorded or sent; only the chat text goes out, and only when you tap a Coax button.")
+            Step(number: 4, text: "Allow Photos access, so the keyboard can read your latest screenshots. They're read on your phone and never uploaded.")
+            Button {
+                Task { photosAllowed = await RecentScreenshots.requestAccess() }
+            } label: {
+                Label(photosAllowed ? "Photos access allowed" : "Allow Photos access",
+                      systemImage: photosAllowed ? "checkmark.circle" : "photo")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .disabled(photosAllowed)
             Button {
                 if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
             } label: {

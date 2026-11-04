@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct KeyboardActions {
+    var getRepliesFromScreenshots: () -> Void
     var getReplies: () -> Void
     var insert: (ReplySuggestion) -> Void
     var type: (String) -> Void
@@ -37,33 +38,34 @@ struct KeyboardView: View {
     }
 
     private var topBar: some View {
-        HStack(spacing: 8) {
-            Button {
-                if state.hasFullAccess {
-                    state.panel = .replies
-                    actions.getReplies()
-                } else {
-                    state.panel = state.panel == .fullAccessHelp ? .keys : .fullAccessHelp
+        HStack(spacing: 6) {
+            HStack(spacing: 0) {
+                ReplyBarButton(title: state.screenshotCount == 1 ? "Last screenshot" : "Last \(state.screenshotCount) screenshots",
+                               systemImage: "photo.on.rectangle", prominent: true) {
+                    start(actions.getRepliesFromScreenshots)
                 }
-            } label: {
-                Label(model.phase == .done ? "New replies from what I copied" : "Get replies from what I copied",
-                      systemImage: "sparkles")
-                    .font(.footnote.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .frame(maxWidth: .infinity, minHeight: 34)
-                    .background(Color.accentColor, in: Capsule())
-                    .foregroundStyle(.white)
+                Button {
+                    state.screenshotCount = state.screenshotCount % 3 + 1
+                } label: {
+                    Text("\(state.screenshotCount)")
+                        .font(.footnote.weight(.bold))
+                        .frame(width: 30, height: 30)
+                        .background(Color(.systemBackground), in: Circle())
+                        .foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 4)
+                .accessibilityLabel("Number of screenshots: \(state.screenshotCount). Tap to change.")
             }
-            .buttonStyle(.plain)
-            .disabled(model.isBusy)
-
+            ReplyBarButton(title: "What I copied", systemImage: "doc.on.clipboard", prominent: false) {
+                start(actions.getReplies)
+            }
             if state.panel != .keys {
                 Button {
                     state.panel = .keys
                 } label: {
                     Image(systemName: "keyboard")
-                        .frame(width: 44, height: 34)
+                        .frame(width: 40, height: 34)
                         .background(Color(.systemBackground), in: Capsule())
                         .foregroundStyle(Color.primary)
                 }
@@ -71,7 +73,37 @@ struct KeyboardView: View {
                 .accessibilityLabel("Back to keys")
             }
         }
+        .disabled(model.isBusy)
         .padding(.horizontal, 2)
+    }
+
+    private func start(_ action: () -> Void) {
+        if state.hasFullAccess {
+            state.panel = .replies
+            action()
+        } else {
+            state.panel = state.panel == .fullAccessHelp ? .keys : .fullAccessHelp
+        }
+    }
+}
+
+private struct ReplyBarButton: View {
+    var title: String
+    var systemImage: String
+    var prominent: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.footnote.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity, minHeight: 34)
+                .background(prominent ? Color.accentColor : Color(.systemBackground), in: Capsule())
+                .foregroundStyle(prominent ? Color.white : Color.primary)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -86,7 +118,7 @@ private struct RepliesPanel: View {
         switch model.phase {
         case .waiting:
             Hint(systemImage: "doc.on.doc",
-                 text: "Copy their message, or a screenshot of the chat, then tap the button above.")
+                 text: "Screenshot the chat and tap the screenshots button (tap the number to read 1, 2 or 3). Or copy their message and tap What I copied.")
         case .reading:
             Working(text: "Reading what you copied…")
         case .generating:

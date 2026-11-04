@@ -35,19 +35,35 @@ enum Transcript {
     /// Screenshots usually overlap, so the longest run of messages that ends the
     /// earlier part and starts the later part is kept only once.
     static func append(_ next: [ChatMessage], to earlier: [ChatMessage]) -> [ChatMessage] {
+        earlier + next.dropFirst(overlap(earlier, then: next))
+    }
+
+    /// Joins screenshots' messages in whichever order they overlap best.
+    /// `parts` is in the order the screenshots were taken. People scroll both
+    /// ways between screenshots, so the reverse order is tried too. With no
+    /// overlap either way, the order they were taken wins.
+    static func joinBestOrder(_ parts: [[ChatMessage]]) -> [ChatMessage] {
+        func totalOverlap(_ ordered: [[ChatMessage]]) -> Int {
+            zip(ordered, ordered.dropFirst()).reduce(0) { $0 + overlap($1.0, then: $1.1) }
+        }
+        let ordered = totalOverlap(parts.reversed()) > totalOverlap(parts) ? Array(parts.reversed()) : parts
+        return ordered.reduce([ChatMessage]()) { append($1, to: $0) }
+    }
+
+    static func joinBestOrder(_ first: [ChatMessage], _ second: [ChatMessage]) -> [ChatMessage] {
+        joinBestOrder([first, second])
+    }
+
+    /// How many messages at the end of `earlier` repeat at the start of `next`.
+    static func overlap(_ earlier: [ChatMessage], then next: [ChatMessage]) -> Int {
         let maxOverlap = min(earlier.count, next.count)
-        var overlap = 0
-        if maxOverlap > 0 {
-            for size in stride(from: maxOverlap, through: 1, by: -1) {
-                let tail = earlier.suffix(size)
-                let head = next.prefix(size)
-                if zip(tail, head).allSatisfy({ same($0, $1) }) {
-                    overlap = size
-                    break
-                }
+        guard maxOverlap > 0 else { return 0 }
+        for size in stride(from: maxOverlap, through: 1, by: -1) {
+            if zip(earlier.suffix(size), next.prefix(size)).allSatisfy({ same($0, $1) }) {
+                return size
             }
         }
-        return earlier + next.dropFirst(overlap)
+        return 0
     }
 
     private static func same(_ a: ChatMessage, _ b: ChatMessage) -> Bool {
