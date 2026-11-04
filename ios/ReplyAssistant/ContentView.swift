@@ -16,7 +16,7 @@ struct ContentView: View {
                     ReplyFlowView(model: model)
                 }
             }
-            .navigationTitle("Reply Assistant")
+            .navigationTitle("Coax")
             .toolbar {
                 if model.phase != .waiting {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -56,12 +56,21 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("How to use it").font(.headline)
                     Step(number: 1, text: "In Hinge, Messages or any chat, long-press their message and tap Copy. Or take a screenshot, tap it, and tap Copy.")
-                    Step(number: 2, text: "Tap the message box, then hold the 🌐 key and pick Reply Assistant.")
+                    Step(number: 2, text: "Tap the message box, then hold the 🌐 key and pick Coax.")
                     Step(number: 3, text: "Tap Get replies from what I copied, then tap a reply to type it in.")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Divider()
+
+                Button {
+                    Task { await model.tryExample() }
+                } label: {
+                    Label("Try it with an example chat", systemImage: "text.bubble")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
 
                 Text("Or try it here with a screenshot")
                     .font(.subheadline)
@@ -111,7 +120,7 @@ private struct KeyboardSetupCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Turn on the keyboard (once)").font(.headline)
             Step(number: 1, text: "Tap Open Settings below, then Keyboards.")
-            Step(number: 2, text: "Turn on Reply Assistant.")
+            Step(number: 2, text: "Turn on Coax.")
             Step(number: 3, text: "Turn on Allow Full Access. iPhone shows a warning for every keyboard that goes online. We need it to read what you copy and fetch replies. Nothing you type is recorded or sent; only what you copied goes out, and only when you tap Get replies.")
             Button {
                 if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }

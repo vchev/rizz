@@ -66,6 +66,21 @@ final class ReplyFlowModel: ObservableObject {
         await generate()
     }
 
+    /// A made-up chat for trying the app without a screenshot.
+    static let exampleChat: [ChatMessage] = [
+        ChatMessage(speaker: .them, text: "ok your third photo, is that a pottery wheel??"),
+        ChatMessage(speaker: .you, text: "guilty. I took one class and now I think I'm a ceramicist"),
+        ChatMessage(speaker: .them, text: "haha that's amazing. what did you make"),
+        ChatMessage(speaker: .you, text: "a bowl that is technically also a plate"),
+        ChatMessage(speaker: .them, text: "honestly iconic. are you free this weekend? I want to see this bowl-plate"),
+    ]
+
+    func tryExample() async {
+        replies = []
+        messages = Self.exampleChat
+        await generate()
+    }
+
     func generate(tone: ReplyTone? = nil) async {
         guard messages.contains(where: { $0.speaker == .them }) else {
             phase = .failed("Couldn't tell which messages are theirs. Tap a message to switch who said it, then tap Get new replies.")

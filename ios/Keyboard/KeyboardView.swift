@@ -185,7 +185,7 @@ private struct FullAccessHelp: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("To get replies, turn on Full Access")
                 .font(.callout.weight(.semibold))
-            Text("Open the Settings app › General › Keyboard › Keyboards › Reply Assistant, and turn on Allow Full Access.")
+            Text("Open the Settings app › General › Keyboard › Keyboards › Coax, and turn on Allow Full Access.")
                 .font(.footnote)
             Text("iPhone needs this before a keyboard can read what you copied or fetch replies. Typing works either way, and we never record what you type.")
                 .font(.footnote)
