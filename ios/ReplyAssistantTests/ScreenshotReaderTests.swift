@@ -100,4 +100,43 @@ final class ScreenshotReaderTests: XCTestCase {
         XCTAssertFalse(messages.contains { words($0.text).contains("something fun") }, "Placeholder kept: \(read)")
         XCTAssertFalse(messages.contains { words($0.text).contains("your move") }, "Bubble-less text kept: \(read)")
     }
+
+    /// Dark chat where their bubbles sit after a profile photo, so the text of
+    /// both sides starts at nearly the same x. Only the right edge tells them apart.
+    func testTellsSpeakersApartWhenBothSidesStartAtTheSameX() async throws {
+        let size = CGSize(width: 1179, height: 2556)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let you = UIColor(red: 0.27, green: 0.31, blue: 0.40, alpha: 1)
+        let them = UIColor(white: 0.22, alpha: 1)
+        let rows: [(String, Bool, CGFloat)] = [   // text, from you, bubble width share
+            ("I played pickleball 3 times", true, 0.78),
+            ("Are you really good or what", true, 0.77),
+            ("Haha I'm pretty good but you should find out", false, 0.66),
+            ("When are you usually free", false, 0.68),
+        ]
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            UIColor(white: 0.1, alpha: 1).setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            var y: CGFloat = 400
+            let attrs: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 48),
+                                                        .foregroundColor: UIColor(white: 0.93, alpha: 1)]
+            for (text, fromYou, share) in rows {
+                let w = size.width * share
+                let x = fromYou ? size.width * 0.97 - w : size.width * 0.17
+                let rect = CGRect(x: x, y: y, width: w, height: 130)
+                (fromYou ? you : them).setFill()
+                UIBezierPath(roundedRect: rect, cornerRadius: 50).fill()
+                if !fromYou {
+                    UIColor(white: 0.45, alpha: 1).setFill()
+                    UIBezierPath(ovalIn: CGRect(x: 50, y: y + 5, width: 120, height: 120)).fill()
+                }
+                (text as NSString).draw(at: CGPoint(x: x + 45, y: y + 35), withAttributes: attrs)
+                y += 170
+            }
+        }
+        let messages = try await ScreenshotReader().read(image)
+        XCTAssertEqual(messages.map(\.speaker), [.you, .you, .them, .them],
+                       "Read: \(messages.map { "\($0.speaker): \($0.text)" })")
+    }
 }

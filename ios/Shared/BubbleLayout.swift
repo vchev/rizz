@@ -13,6 +13,9 @@ struct TextLine: Hashable {
     var onBubble: Bool? = nil
     /// Greyed-out text, like a placeholder ("Aa", "Type a message").
     var isFaint: Bool = false
+    /// Left and right edges of the bubble around the text, when measured.
+    var bubbleMinX: CGFloat? = nil
+    var bubbleMaxX: CGFloat? = nil
 }
 
 /// Turns lines of text from a chat screenshot into messages.
@@ -44,11 +47,25 @@ enum BubbleLayout {
             .sorted { $0.box.minY < $1.box.minY }
 
         return groupIntoBubbles(kept).compactMap { bubble in
-            guard let speaker = speaker(for: bubble.box) else { return nil }
+            guard let speaker = speaker(for: bubble) else { return nil }
             let text = bubble.lines.map(\.text).joined(separator: " ")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             return text.isEmpty ? nil : ChatMessage(speaker: speaker, text: text)
         }
+    }
+
+    /// Your bubbles touch the right margin; theirs don't (they may sit after a
+    /// profile photo, so their left edge can be as far in as yours).
+    static let rightMarginForYou: CGFloat = 0.06
+
+    /// Uses the bubble's own edges when they were measured, else the text's.
+    static func speaker(for bubble: Bubble) -> Speaker? {
+        let mins = bubble.lines.compactMap(\.bubbleMinX)
+        let maxes = bubble.lines.compactMap(\.bubbleMaxX)
+        guard let minX = mins.min(), let maxX = maxes.max() else { return speaker(for: bubble.box) }
+        let left = minX, right = 1 - maxX
+        if abs(left - right) < 0.03 && left > 0.25 { return nil }   // a centered pill (date, notice)
+        return right < rightMarginForYou && left > right ? .you : .them
     }
 
     /// nil means centered text, which is dropped.

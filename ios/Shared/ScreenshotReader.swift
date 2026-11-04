@@ -48,6 +48,10 @@ struct ScreenshotReader {
                 if let pixels {
                     line.onBubble = pixels.isOnBubble(box)
                     line.isFaint = pixels.isFaintText(box)
+                    if line.onBubble == true, let span = pixels.bubbleSpan(box) {
+                        line.bubbleMinX = span.lowerBound
+                        line.bubbleMaxX = span.upperBound
+                    }
                 }
                 return line
             }
@@ -130,6 +134,26 @@ struct PixelGrid {
         let gap: CGFloat = 0.012
         let beside = [color(box.minX - gap, y), color(box.maxX + gap, y)]
         return beside.contains { b in edges.allSatisfy { Self.distance(b, $0) > 0.03 } }
+    }
+
+    /// How far the bubble around the text reaches left and right, found by
+    /// walking out from the text until the colour changes. nil if unclear.
+    func bubbleSpan(_ box: CGRect) -> ClosedRange<CGFloat>? {
+        let y = box.midY
+        let step = 1 / CGFloat(width)
+        func walk(from x: CGFloat, by dx: CGFloat) -> CGFloat {
+            let fill = color(x, y)
+            var edge = x
+            while edge + dx > 0, edge + dx < 1, Self.distance(color(edge + dx, y), fill) < 0.06 {
+                edge += dx
+            }
+            return edge
+        }
+        let gap: CGFloat = 0.012
+        let left = walk(from: box.minX - gap, by: -step)
+        let right = walk(from: box.maxX + gap, by: step)
+        guard right > left else { return nil }
+        return left...right
     }
 
     /// Greyed-out text: the pixels that differ most from the background are a
