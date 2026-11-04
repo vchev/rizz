@@ -9,10 +9,41 @@ import DeclaredAgeRange
 ///
 /// Returns nil when it can't tell: older iOS, the user declined to share,
 /// or the app isn't allowed to ask yet (the Declared Age Range capability
-/// needs the paid Apple Developer account). Onboarding then asks for a birth year.
+/// needs the paid Apple Developer account). Onboarding then asks the user to tap their age.
 enum AgeCheck {
+    /// Off until the Declared Age Range capability is added (paid account).
+    /// Without it, iOS never answers, so asking would just wait.
+    static let isEnabled = false
+
+    /// Apple's answer, or nil if it doesn't come within `timeout` seconds.
+    /// (A task group would wait for the stuck request, so this races two tasks instead.)
     @MainActor
-    static func askApple() async -> AgeGroup? {
+    static func askApple(timeout: Double) async -> AgeGroup? {
+        await withCheckedContinuation { (done: CheckedContinuation<AgeGroup?, Never>) in
+            let once = Once()
+            Task { @MainActor in
+                let answer = await askAppleNoLimit()
+                once.run { done.resume(returning: answer) }
+            }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                once.run { done.resume(returning: nil) }
+            }
+        }
+    }
+
+    @MainActor
+    private final class Once {
+        private var used = false
+        func run(_ body: () -> Void) {
+            guard !used else { return }
+            used = true
+            body()
+        }
+    }
+
+    @MainActor
+    private static func askAppleNoLimit() async -> AgeGroup? {
         #if canImport(DeclaredAgeRange)
         if #available(iOS 26.0, *) {
             guard let host = topViewController() else { return nil }

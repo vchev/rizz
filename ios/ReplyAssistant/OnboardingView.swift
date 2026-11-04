@@ -10,7 +10,7 @@ struct OnboardingView: View {
     var onFinish: () -> Void
 
     enum Step: Equatable {
-        case welcome, checkingAge, birthYear, birthday(Int), turnedAway, parentOK
+        case welcome, checkingAge, askAge, turnedAway, parentOK
         case tryIt, fullAccess, keyboard, photos
     }
 
@@ -40,8 +40,7 @@ struct OnboardingView: View {
             switch step {
             case .welcome: welcome
             case .checkingAge: checkingAge
-            case .birthYear: BirthYearStep { year in chose(birthYear: year) }
-            case .birthday(let year): birthday(year)
+            case .askAge: askAge
             case .turnedAway: turnedAway
             case .parentOK: parentOK
             case .tryIt: TryItStep { go(.fullAccess) }
@@ -58,26 +57,18 @@ struct OnboardingView: View {
 
     // MARK: Age
 
+    /// Apple's age range when it's switched on (needs the paid developer account),
+    /// with a time limit so it can never hang; otherwise the user taps their age.
     private func checkAge() {
-        if uiTesting { go(.birthYear); return }
+        guard AgeCheck.isEnabled, !uiTesting else { go(.askAge); return }
         go(.checkingAge)
         Task {
-            if let group = await AgeCheck.askApple() {
+            if let group = await AgeCheck.askApple(timeout: 3) {
                 AgeSettings.source = "apple"
                 set(group)
             } else {
-                go(.birthYear)
+                go(.askAge)
             }
-        }
-    }
-
-    private func chose(birthYear: Int) {
-        let year = Calendar.current.component(.year, from: Date())
-        if let group = AgeFromBirthYear.group(birthYear: birthYear, currentYear: year) {
-            AgeSettings.source = "asked"
-            set(group)
-        } else {
-            go(.birthday(birthYear))
         }
     }
 
@@ -109,26 +100,35 @@ struct OnboardingView: View {
         }
     }
 
-    private func birthday(_ year: Int) -> some View {
-        StepPage(icon: "gift", title: "Have you had your birthday yet this year?", subtitle: nil) {
+    private var askAge: some View {
+        StepPage(icon: "person.crop.circle.badge.checkmark",
+                 title: "How old are you?",
+                 subtitle: "Coax is for people 16 and older.") {
             VStack(spacing: 12) {
-                Button("Yes") { finishBirthday(year, had: true) }.buttonStyle(PrimaryButton())
-                Button("Not yet") { finishBirthday(year, had: false) }.buttonStyle(SecondaryButton())
+                Button("I'm 18 or older") { tapped(.adult) }.buttonStyle(PrimaryButton())
+                Button("I'm 16 or 17") { tapped(.teen) }.buttonStyle(PrimaryButton())
+                Button("I'm under 16") { tapped(.under16) }.buttonStyle(SecondaryButton())
             }
         }
     }
 
-    private func finishBirthday(_ year: Int, had: Bool) {
-        let now = Calendar.current.component(.year, from: Date())
-        AgeSettings.source = "asked"
-        set(AgeFromBirthYear.group(birthYear: year, currentYear: now, hadBirthdayThisYear: had) ?? .under16)
+    private func tapped(_ group: AgeGroup) {
+        AgeSettings.source = "tapped"
+        set(group)
     }
 
     private var turnedAway: some View {
         StepPage(icon: "hand.raised",
                  title: "Coax is for people 16 and older",
                  subtitle: "Thanks for checking it out. Coax will be here when you're 16.") {
-            EmptyView()
+            #if DEBUG
+            // Test builds only, so you can try the other paths without deleting the app.
+            Button("Start over (test builds only)") {
+                AgeSettings.reset()
+                go(.welcome)
+            }
+            .buttonStyle(SecondaryButton())
+            #endif
         }
         .accessibilityIdentifier("turnedAway")
     }
@@ -211,31 +211,6 @@ struct OnboardingView: View {
     private func finish() {
         AgeSettings.onboarded = true
         onFinish()
-    }
-}
-
-// MARK: - Birth year (when iPhone can't share an age range)
-
-private struct BirthYearStep: View {
-    var onDone: (Int) -> Void
-    private let thisYear = Calendar.current.component(.year, from: Date())
-    @State private var year: Int = Calendar.current.component(.year, from: Date())
-
-    var body: some View {
-        StepPage(icon: "calendar", title: "What year were you born?",
-                 subtitle: "Stays on your phone.") {
-            VStack(spacing: 12) {
-                Picker("Birth year", selection: $year) {
-                    ForEach((thisYear - 100)...thisYear, id: \.self) { y in
-                        Text(String(y)).tag(y)
-                    }
-                }
-                .pickerStyle(.wheel)
-                .frame(height: 150)
-                Button("Continue") { onDone(year) }
-                    .buttonStyle(PrimaryButton())
-            }
-        }
     }
 }
 

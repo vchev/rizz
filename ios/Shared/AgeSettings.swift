@@ -32,7 +32,7 @@ enum AgeSettings {
         set { defaults.set(newValue?.rawValue, forKey: groupKey) }
     }
 
-    /// "apple" when it came from Apple's Declared Age Range, "asked" when the user typed it.
+    /// "apple" when it came from Apple's Declared Age Range, "tapped" when the user picked it.
     static var source: String? {
         get { defaults.string(forKey: sourceKey) }
         set { defaults.set(newValue, forKey: sourceKey) }
@@ -58,24 +58,5 @@ enum AgeSettings {
 
     static func reset() {
         for key in [groupKey, sourceKey, parentOKKey, onboardedKey] { defaults.removeObject(forKey: key) }
-    }
-}
-
-/// Works out the age group from a birth year when Apple's age range isn't available.
-enum AgeFromBirthYear {
-    /// nil = can't tell from the year alone; ask whether the birthday has passed.
-    static func group(birthYear: Int, currentYear: Int, hadBirthdayThisYear: Bool? = nil) -> AgeGroup? {
-        let maxAge = currentYear - birthYear
-        let age: Int
-        if let had = hadBirthdayThisYear {
-            age = had ? maxAge : maxAge - 1
-        } else if maxAge == 16 || maxAge == 18 {
-            return nil
-        } else {
-            age = maxAge
-        }
-        if age < 16 { return .under16 }
-        if age < 18 { return .teen }
-        return .adult
     }
 }
