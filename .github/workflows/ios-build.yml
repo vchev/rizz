@@ -44,3 +44,25 @@ jobs:
           name: ui-screenshots
           path: ui-screenshots/
           if-no-files-found: ignore
+
+  # Apple's age check (Declared Age Range) only exists in the newest Xcode,
+  # so also build with whatever newest Xcode the cloud Mac has.
+  build-newest-xcode:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pick the newest Xcode
+        run: |
+          NEWEST=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Using $NEWEST"
+          sudo xcode-select -s "$NEWEST"
+          xcodebuild -version
+      - name: Build app and extensions
+        run: |
+          xcodebuild build \
+            -project ios/ReplyAssistant.xcodeproj \
+            -scheme ReplyAssistant \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO | tail -n 60
+          exit ${PIPESTATUS[0]}

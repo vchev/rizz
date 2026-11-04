@@ -80,6 +80,7 @@ struct SampleReplyService: ReplyService {
 ///
 /// Request (POST, JSON):
 ///   {"platform": "imessage", "n": 3, "tone": "funnier",   // tone is optional
+///    "under_18": true,                                   // teen mode only
 ///    "messages": [{"speaker": "them", "text": "..."}, {"speaker": "you", "text": "..."}]}
 /// Response (JSON):
 ///   {"replies": [{"text": "..."}, ...]}
@@ -95,7 +96,14 @@ struct HTTPReplyService: ReplyService {
         var platform: String
         var n: Int
         var tone: ReplyTone?
+        /// Teen mode (ages 16-17): the engine keeps replies free of sexual content.
+        var under18: Bool? = nil
         var messages: [ChatMessage]
+
+        enum CodingKeys: String, CodingKey {
+            case platform, n, tone, messages
+            case under18 = "under_18"
+        }
     }
 
     struct ResponseBody: Decodable {
@@ -124,7 +132,8 @@ struct HTTPReplyService: ReplyService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token { request.setValue(token, forHTTPHeaderField: "X-Coax-Token") }
         request.httpBody = try JSONEncoder().encode(
-            RequestBody(platform: platform, n: AppConfig.repliesPerRequest, tone: tone, messages: messages))
+            RequestBody(platform: platform, n: AppConfig.repliesPerRequest, tone: tone,
+                        under18: AgeSettings.wantsTeenReplies ? true : nil, messages: messages))
 
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
