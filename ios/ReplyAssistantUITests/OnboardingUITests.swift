@@ -62,7 +62,7 @@ final class OnboardingUITests: XCTestCase {
 
     func testSixteenOrSeventeenAsksForParentOK() throws {
         let app = launch()
-        pickBirthYear(app, yearsAgo: 17)   // could be 16 or 17: asks about the birthday
+        pickBirthYear(app, yearsAgo: 16)   // 15 or 16: asks about the birthday, "Yes" = 16
         let yes = app.buttons["Yes"]
         XCTAssertTrue(yes.waitForExistence(timeout: 5))
         yes.tap()
