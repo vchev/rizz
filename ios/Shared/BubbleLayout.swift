@@ -46,13 +46,21 @@ enum BubbleLayout {
             .filter { $0.onBubble != false && !$0.isFaint }
             .sorted { $0.box.minY < $1.box.minY }
 
+        // A quote indented inside its bubble can end up as a group of its own:
+        // it then belongs to the message right below it.
+        var pendingQuote: String?
         return groupIntoBubbles(dropTinyText(kept)).compactMap { bubble in
             guard let speaker = speaker(for: bubble) else { return nil }
             let (lines, quote) = splitQuote(bubble.lines)
-            guard !lines.isEmpty else { return nil }
+            guard !lines.isEmpty else {
+                pendingQuote = quote ?? pendingQuote
+                return nil
+            }
             let text = lines.map(\.text).joined(separator: " ")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            return text.isEmpty ? nil : ChatMessage(speaker: speaker, text: text, replyTo: quote)
+            let replyTo = quote ?? pendingQuote
+            pendingQuote = nil
+            return text.isEmpty ? nil : ChatMessage(speaker: speaker, text: text, replyTo: replyTo)
         }
     }
 

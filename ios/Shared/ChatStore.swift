@@ -138,10 +138,11 @@ final class ChatStore {
     /// longest run of matches, allowing misreads and messages that only one
     /// side has (a timestamp read as text, a bubble cut off at the edge).
     static func matches(_ saved: [ChatMessage], _ read: [ChatMessage]) -> [(saved: Int, read: Int)] {
-        // Short messages ("lol", "haha") repeat in any chat, so they never
-        // anchor a match on their own; they come along with their neighbours.
+        // Short messages ("lol", "I'm in") repeat in any chat, so they only
+        // count right next to a longer shared message (see the filter below).
+        func isShort(_ a: ChatMessage) -> Bool { Transcript.normalized(a.text).count < 8 }
         func same(_ a: ChatMessage, _ b: ChatMessage) -> Bool {
-            guard min(Transcript.normalized(a.text).count, Transcript.normalized(b.text).count) >= 8 else { return false }
+            if isShort(a) || isShort(b) { return Transcript.normalized(a.text) == Transcript.normalized(b.text) }
             return Transcript.similar(a.text, b.text)
                 || Transcript.isCutOff(a.text, of: b.text, keepingEnd: true)
                 || Transcript.isCutOff(a.text, of: b.text, keepingEnd: false)
@@ -170,7 +171,14 @@ final class ChatStore {
                 j += 1
             }
         }
-        return pairs
+        // Keep short matches only when chained (both sides consecutive) to a long one.
+        var keep = pairs.map { !isShort(saved[$0.saved]) && !isShort(read[$0.read]) }
+        func chained(_ a: Int, _ b: Int) -> Bool {
+            pairs[b].saved == pairs[a].saved + 1 && pairs[b].read == pairs[a].read + 1
+        }
+        for k in pairs.indices.dropFirst() where !keep[k] && keep[k - 1] && chained(k - 1, k) { keep[k] = true }
+        for k in pairs.indices.dropLast().reversed() where !keep[k] && keep[k + 1] && chained(k, k + 1) { keep[k] = true }
+        return pairs.indices.filter { keep[$0] }.map { pairs[$0] }
     }
 
     /// The saved chat with the new read fitted in, and where the read landed.
