@@ -96,19 +96,20 @@ struct PixelGrid {
     private let height: Int
 
     init?(_ image: CGImage) {
-        width = image.width
-        height = image.height
-        guard width > 0, height > 0 else { return nil }
-        var buffer = [UInt8](repeating: 0, count: width * height * 4)
+        let w = image.width, h = image.height
+        guard w > 0, h > 0 else { return nil }
+        var buffer = [UInt8](repeating: 0, count: w * h * 4)
         let drawn = buffer.withUnsafeMutableBytes { raw -> Bool in
-            guard let ctx = CGContext(data: raw.baseAddress, width: width, height: height,
-                                      bitsPerComponent: 8, bytesPerRow: width * 4,
+            guard let ctx = CGContext(data: raw.baseAddress, width: w, height: h,
+                                      bitsPerComponent: 8, bytesPerRow: w * 4,
                                       space: CGColorSpaceCreateDeviceRGB(),
                                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
-            ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
             return true
         }
         guard drawn else { return nil }
+        width = w
+        height = h
         data = buffer
     }
 
