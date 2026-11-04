@@ -57,9 +57,17 @@ struct KeyboardView: View {
                 .padding(.leading, 4)
                 .accessibilityLabel("Number of screenshots: \(state.screenshotCount). Tap to change.")
             }
-            ReplyBarButton(title: "What I copied", systemImage: "doc.on.clipboard", prominent: false) {
+            // Backup for when a screenshot can't be read: replies to whatever was copied.
+            Button {
                 start(actions.getReplies)
+            } label: {
+                Image(systemName: "doc.on.clipboard")
+                    .frame(width: 40, height: 34)
+                    .background(Color(.systemBackground), in: Capsule())
+                    .foregroundStyle(Color.primary)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Get replies to what I copied")
             if state.panel != .keys {
                 Button {
                     state.panel = .keys
@@ -118,7 +126,7 @@ private struct RepliesPanel: View {
         switch model.phase {
         case .waiting:
             Hint(systemImage: "doc.on.doc",
-                 text: "Screenshot the chat and tap the screenshots button (tap the number to read 1, 2 or 3). Or copy their message and tap What I copied.")
+                 text: "Screenshot the chat and tap the screenshots button (tap the number to read 1, 2 or 3). Or copy their message and tap the clipboard button.")
         case .reading:
             Working(text: "Reading what you copied…")
         case .generating:

@@ -13,7 +13,7 @@ enum RecentScreenshots {
         var errorDescription: String? {
             switch self {
             case .noAccess(let status):
-                return "Coax can't see your screenshots yet (code \(status)). Use the Back Tap shortcut, or copy their message and tap What I copied."
+                return "Coax can't see your screenshots yet (code \(status)). Use the Back Tap shortcut, or copy their message and tap the clipboard button."
             case .limitedAccess:
                 return "Coax can only see the photos you picked, so new screenshots are hidden. Open Settings › Coax › Photos and choose Full Access."
             case .noneFound:
