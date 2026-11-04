@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "7B084BEE158D87E89072E135"
+               BlueprintIdentifier = "FF94CA6C71DB2E537C35EB48"
                BuildableName = "ReplyAssistant.app"
                BlueprintName = "ReplyAssistant"
                ReferencedContainer = "container:ReplyAssistant.xcodeproj">
@@ -28,7 +28,7 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "45C34D3A9211B3F5D4A3CF8D"
+               BlueprintIdentifier = "7D35605A79392944DB60A739"
                BuildableName = "ReplyAssistantTests.xctest"
                BlueprintName = "ReplyAssistantTests"
                ReferencedContainer = "container:ReplyAssistant.xcodeproj">
@@ -44,7 +44,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "7B084BEE158D87E89072E135"
+            BlueprintIdentifier = "FF94CA6C71DB2E537C35EB48"
             BuildableName = "ReplyAssistant.app"
             BlueprintName = "ReplyAssistant"
             ReferencedContainer = "container:ReplyAssistant.xcodeproj">
@@ -55,7 +55,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "45C34D3A9211B3F5D4A3CF8D"
+               BlueprintIdentifier = "7D35605A79392944DB60A739"
                BuildableName = "ReplyAssistantTests.xctest"
                BlueprintName = "ReplyAssistantTests"
                ReferencedContainer = "container:ReplyAssistant.xcodeproj">
@@ -77,7 +77,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "7B084BEE158D87E89072E135"
+            BlueprintIdentifier = "FF94CA6C71DB2E537C35EB48"
             BuildableName = "ReplyAssistant.app"
             BlueprintName = "ReplyAssistant"
             ReferencedContainer = "container:ReplyAssistant.xcodeproj">
@@ -94,7 +94,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "7B084BEE158D87E89072E135"
+            BlueprintIdentifier = "FF94CA6C71DB2E537C35EB48"
             BuildableName = "ReplyAssistant.app"
             BlueprintName = "ReplyAssistant"
             ReferencedContainer = "container:ReplyAssistant.xcodeproj">

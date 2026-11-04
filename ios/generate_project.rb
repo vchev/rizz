@@ -25,6 +25,7 @@ end
 shared_group = add_group(project, 'Shared')
 app_group = add_group(project, 'ReplyAssistant')
 ext_group = add_group(project, 'ShareExtension')
+kbd_group = add_group(project, 'Keyboard')
 test_group = add_group(project, 'ReplyAssistantTests')
 
 shared_refs = swift_files('Shared').map { |f| shared_group.new_file(File.basename(f)) }
@@ -32,6 +33,8 @@ app_refs = swift_files('ReplyAssistant').map { |f| app_group.new_file(File.basen
 assets_ref = app_group.new_file('Assets.xcassets')
 ext_refs = swift_files('ShareExtension').map { |f| ext_group.new_file(File.basename(f)) }
 ext_group.new_file('Info.plist')
+kbd_refs = swift_files('Keyboard').map { |f| kbd_group.new_file(File.basename(f)) }
+kbd_group.new_file('Info.plist')
 test_refs = swift_files('ReplyAssistantTests').map { |f| test_group.new_file(File.basename(f)) }
 
 common = {
@@ -85,11 +88,30 @@ ext.build_configurations.each do |c|
   )
 end
 
-app.add_dependency(ext)
+# Keyboard extension
+kbd = project.new_target(:app_extension, 'Keyboard', :ios, IOS_VERSION)
+kbd.add_file_references(shared_refs + kbd_refs)
+kbd.build_configurations.each do |c|
+  c.build_settings.merge!(common)
+  c.build_settings.merge!(
+    'PRODUCT_BUNDLE_IDENTIFIER' => "#{BUNDLE_ID}.Keyboard",
+    'PRODUCT_NAME' => '$(TARGET_NAME)',
+    'INFOPLIST_FILE' => 'Keyboard/Info.plist',
+    'INFOPLIST_KEY_CFBundleDisplayName' => 'Reply Assistant',
+    'SKIP_INSTALL' => 'YES',
+    'APPLICATION_EXTENSION_API_ONLY' => 'YES',
+    'LD_RUNPATH_SEARCH_PATHS' => ['$(inherited)', '@executable_path/Frameworks',
+                                  '@executable_path/../../Frameworks'],
+  )
+end
+
 embed = app.new_copy_files_build_phase('Embed Foundation Extensions')
 embed.symbol_dst_subfolder_spec = :plug_ins
-embed_file = embed.add_file_reference(ext.product_reference, true)
-embed_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
+[ext, kbd].each do |extension|
+  app.add_dependency(extension)
+  embed_file = embed.add_file_reference(extension.product_reference, true)
+  embed_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
+end
 
 # Unit tests for the pure layout logic (no app host needed)
 tests = project.new_target(:unit_test_bundle, 'ReplyAssistantTests', :ios, IOS_VERSION)
