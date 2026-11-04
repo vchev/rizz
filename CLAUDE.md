@@ -29,21 +29,39 @@ Monday morning (Pacific).
 4. Dec 21–Jan 3 Paywall (StoreKit 2, free tier, no card), privacy, beta fixes. Gate 2.
 5. Jan 4–17 App Store submission. Finish line 3: live. iMessage continuity is post-launch.
 
-## Status (as of Nov 3, 2026)
-- Net new project. Scaffold is in place (engine/, api/, harness/, tools/, tests/, config.json);
-  the reply engine itself is not built yet. Sprint 1 starts Nov 9.
-- tools/extract_pdf.py and tools/pdf_to_cases.py are tuned on 4 real Messages PDFs (Nov 3).
+## Status (as of Nov 4, 2026)
+- Sprint 1 done early. Reply engine is live at https://rizz-olive.vercel.app/api/reply
+  (Vercel free Hobby plan; engine changes go live on merge, no app rebuild). Model: Claude
+  Haiku 5.5 on her own Claude API key, zero data retention (see config.json). Prompt v6.
+- GATE 1 PASSED Nov 4 (prompt v5): she'd send one of the 3 replies in 13 of 15 chats.
+  Open tuning item: who-is-who on nicknames and pet names.
+- Sprint 2 started early on Nov 4. Built and working on her iPhone: Back Tap shortcut
+  (screenshot -> 3 replies wait in the Coax keyboard), Coax keyboard (reads a new screenshot,
+  1-2-3 picker, tone tags), Coax iMessage app. Share extension is a backup way in.
+- Not built yet: voice profile (moved to Sprint 3), second-pass generic-reply scorer (later
+  list; today a prompt rule plus a stock-phrase list), thread per match / SwiftData.
 - 43 test cases from 6 threads: jacob, avi, sebastian, brad (iMessage PDFs), jeff and
   bumble-common (Bumble screenshots, transcribed by hand). Kept in data/conversations/
   (git-ignored) and in the project's shared files under rizz-private/conversations/.
-- NEXT: build the reply engine (Sprint 1, Nov 9-22).
 - Wanted: more threads from different people, ideally inside Hinge/Bumble/Tinder.
+
+## Decisions (full log in the PRD's "Decision log")
+- Name: Coax; App Store name "Coax AI: Dating Assistant". Dating only at launch. Lawyer check
+  before launch.
+- Data stays on the phone, no account, no analytics. Minimum age 16+; ages 16-17 get teen mode.
+- Pricing: $4.99/week or $99/year, no monthly; 3 free days with no card, then a 7-day trial.
+- Hosting: Vercel free now; Pro ($20/mo) only when she decides to launch. Apple Developer fee
+  paid once the app fully works (around Dec 6).
+- Brand color: iMessage-style blue (#0A7CFF). Never add a blocking step to the main path
+  (double-tap back -> tap message box -> tap reply).
+- Later list: iMessage continuity, friendship mode, live-screen mode, second-pass generic
+  scorer, blind check against her own ChatGPT shortcut.
 
 ## Rules
 - Speakers by alignment only: right-aligned bubble = "you", left-aligned = "them", centered
   text (timestamps, "Seen", "Delivered") dropped.
-- Never ask for, print, or commit the API key. It lives in `.env` (OPENROUTER_API_KEY) on her Mac
-  and later as a hosting secret. If she pastes a key in chat, tell her to revoke and replace it.
+- Never ask for, print, or commit the API key. It lives in `.env` (ANTHROPIC_API_KEY, or the older
+  OPENROUTER_API_KEY) on her Mac and as a Vercel secret. If she pastes a key in chat, tell her to revoke and replace it.
 - `.env`, `data/conversations/`, `results/` hold secrets and other people's messages: never
   commit, upload, or share them.
 - Bump PROMPT_VERSION in engine/prompts.py whenever prompts change.
