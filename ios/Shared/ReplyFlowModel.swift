@@ -51,6 +51,29 @@ final class ReplyFlowModel: ObservableObject {
         }
     }
 
+    /// The keyboard's "last 2 screenshots" button.
+    func readLatestScreenshots() async {
+        phase = .reading
+        replies = []
+        messages = []
+        do {
+            let images = try await RecentScreenshots.latest(2)
+            var parts: [[ChatMessage]] = []
+            for image in images {
+                parts.append(try await reader.read(image))
+            }
+            let all = parts.count == 2 ? Transcript.joinBestOrder(parts[0], parts[1]) : parts.flatMap { $0 }
+            messages = all
+            guard !all.isEmpty else {
+                phase = .failed("Couldn't find chat messages in your last screenshots. Screenshot the chat and try again.")
+                return
+            }
+            await generate()
+        } catch {
+            phase = .failed(error.localizedDescription)
+        }
+    }
+
     /// Text the user copied (usually their match's last message or messages).
     func readText(_ copied: String) async {
         let lines = copied

@@ -8,6 +8,7 @@ ROOT = File.expand_path(__dir__)
 PROJECT_PATH = File.join(ROOT, 'ReplyAssistant.xcodeproj')
 BUNDLE_ID = 'com.vchev.ReplyAssistant'
 IOS_VERSION = '17.0'
+PHOTOS_REASON = 'Coax reads your latest chat screenshots on your phone to suggest replies. Images are never uploaded.'
 
 FileUtils.rm_rf(PROJECT_PATH)
 project = Xcodeproj::Project.new(PROJECT_PATH, false, 56)
@@ -65,6 +66,7 @@ app.build_configurations.each do |c|
     'INFOPLIST_KEY_UIApplicationSceneManifest_Generation' => 'YES',
     'INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents' => 'YES',
     'INFOPLIST_KEY_UISupportedInterfaceOrientations' => 'UIInterfaceOrientationPortrait',
+    'INFOPLIST_KEY_NSPhotoLibraryUsageDescription' => PHOTOS_REASON,
     'ASSETCATALOG_COMPILER_APPICON_NAME' => 'AppIcon',
     'ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME' => 'AccentColor',
     'ENABLE_PREVIEWS' => 'YES',
@@ -99,6 +101,7 @@ kbd.build_configurations.each do |c|
     'PRODUCT_BUNDLE_IDENTIFIER' => "#{BUNDLE_ID}.Keyboard",
     'PRODUCT_NAME' => '$(TARGET_NAME)',
     'INFOPLIST_FILE' => 'Keyboard/Info.plist',
+    'INFOPLIST_KEY_NSPhotoLibraryUsageDescription' => PHOTOS_REASON,
     'INFOPLIST_KEY_CFBundleDisplayName' => 'Coax',
     'SKIP_INSTALL' => 'YES',
     'APPLICATION_EXTENSION_API_ONLY' => 'YES',

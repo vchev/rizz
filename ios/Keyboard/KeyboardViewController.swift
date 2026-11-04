@@ -31,6 +31,7 @@ final class KeyboardViewController: UIInputViewController {
             model: model,
             state: state,
             actions: KeyboardActions(
+                getRepliesFromScreenshots: { [weak self] in self?.readScreenshots() },
                 getReplies: { [weak self] in self?.readClipboard() },
                 insert: { [weak self] reply in self?.insert(reply) },
                 type: { [weak self] text in self?.textDocumentProxy.insertText(text) },
@@ -75,6 +76,13 @@ final class KeyboardViewController: UIInputViewController {
         textDocumentProxy.insertText(reply.text)
         state.insertedID = reply.id
         state.shifted = false
+    }
+
+    private func readScreenshots() {
+        refreshState()
+        guard hasFullAccess else { return }
+        state.insertedID = nil
+        Task { @MainActor in await model.readLatestScreenshots() }
     }
 
     /// Without Full Access, iOS gives the keyboard neither the clipboard nor the internet.

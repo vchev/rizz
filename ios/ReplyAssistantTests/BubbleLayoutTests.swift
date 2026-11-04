@@ -72,3 +72,23 @@ final class BubbleLayoutTests: XCTestCase {
         XCTAssertEqual(json, [["speaker": "them", "text": "hi"]])
     }
 }
+
+final class TranscriptOrderTests: XCTestCase {
+    private func msgs(_ pairs: [(Speaker, String)]) -> [ChatMessage] {
+        pairs.map { ChatMessage(speaker: $0.0, text: $0.1) }
+    }
+
+    func testScrollingUpBetweenScreenshotsStillGivesChatOrder() {
+        let newer = msgs([(.them, "dinner fri?"), (.you, "yes!"), (.them, "7pm?")])
+        let older = msgs([(.them, "hi"), (.you, "hey you"), (.them, "dinner fri?")])
+        // Taken in this order: newer part of the chat first, then scrolled up.
+        XCTAssertEqual(Transcript.joinBestOrder(newer, older).map(\.text),
+                       ["hi", "hey you", "dinner fri?", "yes!", "7pm?"])
+    }
+
+    func testNoOverlapKeepsTheOrderTheyWereTaken() {
+        let a = msgs([(.them, "one")])
+        let b = msgs([(.you, "two")])
+        XCTAssertEqual(Transcript.joinBestOrder(a, b).map(\.text), ["one", "two"])
+    }
+}
