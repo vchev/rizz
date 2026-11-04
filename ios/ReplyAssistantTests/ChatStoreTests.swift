@@ -36,6 +36,24 @@ final class TranscriptStitchingTests: XCTestCase {
     }
 }
 
+final class SameChatTests: XCTestCase {
+    func testAnOldScreenshotOfAnotherChatIsLeftOut() {
+        let now = Date()
+        let otherChat = [m(.them, "are we still on for pickleball tomorrow"), m(.you, "yes 9am")]
+        let thisChat = [m(.them, "Btw! I'm sure you get this a lot but you have a really nice smile")]
+        XCTAssertEqual(Transcript.sameChat([otherChat, thisChat], taken: [now.addingTimeInterval(-3600), now]), [1])
+    }
+
+    func testOverlappingOrBackToBackScreenshotsAreKept() {
+        let now = Date()
+        let older = [m(.them, "are you free this weekend"), m(.you, "maybe, what did you have in mind")]
+        let newer = [m(.you, "maybe, what did you have in mind"), m(.them, "night market on Saturday?")]
+        XCTAssertEqual(Transcript.sameChat([older, newer], taken: [now.addingTimeInterval(-3600), now]), [0, 1])
+        let noOverlap = [m(.them, "how was your trip"), m(.you, "amazing, the food was unreal")]
+        XCTAssertEqual(Transcript.sameChat([noOverlap, newer], taken: [now.addingTimeInterval(-20), now]), [0, 1])
+    }
+}
+
 final class ChatStoreTests: XCTestCase {
     private var url: URL!
 
@@ -99,6 +117,25 @@ final class ChatStoreTests: XCTestCase {
         XCTAssertNil(reopened.chat("a"))
         reopened.forgetAll()
         XCTAssertTrue(ChatStore(url: url).chats.isEmpty)
+    }
+
+    func testTheLatestScreenshotLandsWhereItBelongsAndIsMarked() {
+        let store = ChatStore(url: url)
+        store.remember([m(.them, "are you free this weekend"), m(.you, "maybe, what did you have in mind"),
+                        m(.them, "night market on Saturday?"), m(.you, "I'm in"), m(.them, "7pm at the north gate")])
+        // Scrolled up a little: the read is the middle of the saved chat, with one line misread.
+        let chat = store.remember([m(.you, "maybe, what did you have in mlnd"), m(.them, "night market on Saturday?")])
+        XCTAssertEqual(chat.messages.count, 5)
+        XCTAssertEqual(chat.latest, 1..<3)
+    }
+
+    func testAShortRepeatedLineDoesNotThrowAwayTheChat() {
+        let store = ChatStore(url: url)
+        let long = (1...6).map { m($0 % 2 == 0 ? .you : .them, "message number \($0) about the hike we planned") }
+        store.remember([m(.them, "lol")] + long, key: "k")
+        let chat = store.remember([m(.you, "lol"), m(.them, "see you saturday then, can't wait")], key: "k")
+        XCTAssertEqual(chat.messages.count, 9, "Saved messages must survive a stray 'lol' match")
+        XCTAssertEqual(chat.messages.last?.text, "see you saturday then, can't wait")
     }
 
     func testAKeyKeepsEachMessagesChatSeparate() {

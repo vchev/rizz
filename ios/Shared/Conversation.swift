@@ -58,6 +58,26 @@ enum Transcript {
         return ordered.reduce([ChatMessage]()) { append($1, to: $0) }
     }
 
+    /// Which screenshots (indexes, oldest first) belong to the same chat as the
+    /// newest one. An older screenshot is kept if it shares a message with the
+    /// kept ones, or was taken within 2 minutes of the next one (scrolling a
+    /// whole screen between shots). Otherwise it's from another chat or an
+    /// older moment, and mixing it in would muddle the replies.
+    static func sameChat(_ parts: [[ChatMessage]], taken: [Date], window: TimeInterval = 120) -> [Int] {
+        guard let newest = parts.indices.last else { return [] }
+        var kept = [newest]
+        var joined = parts[newest]
+        for i in stride(from: newest - 1, through: 0, by: -1) {
+            let shares = overlap(parts[i], then: joined) > 0 || overlap(joined, then: parts[i]) > 0
+                || parts[i].contains { m in joined.contains { similar($0.text, m.text) && normalized(m.text).count >= 8 } }
+            let close = i + 1 < taken.count && abs(taken[i + 1].timeIntervalSince(taken[i])) <= window
+            guard shares || close else { break }
+            kept.insert(i, at: 0)
+            joined = parts[i] + joined
+        }
+        return kept
+    }
+
     static func joinBestOrder(_ first: [ChatMessage], _ second: [ChatMessage]) -> [ChatMessage] {
         joinBestOrder([first, second])
     }

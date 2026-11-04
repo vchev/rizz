@@ -57,7 +57,7 @@ struct ChatReview: View {
                 ScrollView {
                     VStack(spacing: 6) {
                         ForEach(Array(model.messages.enumerated()), id: \.element.id) { index, message in
-                            if index == model.earlierCount && index > 0 {
+                            if index == model.latestIndex && index > 0 {
                                 Divider().overlay(Text("Your latest screenshot")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)

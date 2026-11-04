@@ -5,6 +5,8 @@ struct SavedChat: Codable, Identifiable, Equatable {
     var id: String
     var messages: [ChatMessage]
     var updated: Date
+    /// Where the most recent screenshot's messages sit in `messages`.
+    var latest: Range<Int>? = nil
 }
 
 /// Keeps each match's chat on the phone, so a new screenshot adds to what
@@ -54,12 +56,18 @@ final class ChatStore {
         var chat: SavedChat
         if let index = bestMatch(for: read, key: key) {
             chat = chats.remove(at: index)
-            chat.messages = Self.join(chat.messages, read)
+            let joined = Self.join(chat.messages, read)
+            chat.messages = joined.messages
+            chat.latest = joined.latest
         } else {
-            chat = SavedChat(id: key ?? UUID().uuidString, messages: read, updated: now)
+            chat = SavedChat(id: key ?? UUID().uuidString, messages: read, updated: now, latest: 0..<read.count)
         }
         chat.updated = now
+        let dropped = max(chat.messages.count - Self.maxMessagesPerChat, 0)
         chat.messages = Array(chat.messages.suffix(Self.maxMessagesPerChat))
+        if let latest = chat.latest {
+            chat.latest = max(latest.lowerBound - dropped, 0)..<max(latest.upperBound - dropped, 0)
+        }
         chats.insert(chat, at: 0)
         chats = Array(chats.prefix(Self.maxChats))
         save()
@@ -89,33 +97,94 @@ final class ChatStore {
         return chats.firstIndex { Self.belongTogether($0.messages, read) }
     }
 
-    /// Enough shared messages that it's surely the same chat: two in a row or
-    /// one long one, with at least 20 letters between them (so "hey" + "lol"
-    /// from two different people don't count). Speakers aren't compared, since
-    /// they may have been fixed by hand.
+    /// Enough shared messages that it's surely the same chat: two or one long
+    /// one, with at least 20 letters between them (so "hey" + "lol" from two
+    /// different people don't count). Speakers aren't compared, since they may
+    /// have been fixed by hand.
     static func belongTogether(_ saved: [ChatMessage], _ read: [ChatMessage]) -> Bool {
-        func enough(_ shared: ArraySlice<ChatMessage>) -> Bool {
-            let letters = shared.reduce(0) { $0 + Transcript.normalized($1.text).count }
-            return (shared.count >= 2 && letters >= 20) || letters >= 25
-        }
-        if Transcript.contains(saved, read) { return enough(read[...]) }
-        let after = Transcript.overlap(saved, then: read, matchSpeaker: false)
-        if after > 0 && enough(read.prefix(after)) { return true }
-        let before = Transcript.overlap(read, then: saved, matchSpeaker: false)
-        return before > 0 && enough(saved.prefix(before))
+        let shared = matches(saved, read).map { read[$0.read] }
+        let letters = shared.reduce(0) { $0 + Transcript.normalized($1.text).count }
+        return (shared.count >= 2 && letters >= 20) || letters >= 25
     }
 
-    /// The saved chat with the new read added where it fits.
-    static func join(_ saved: [ChatMessage], _ read: [ChatMessage]) -> [ChatMessage] {
-        if Transcript.contains(saved, read) { return saved }
-        let after = Transcript.overlap(saved, then: read, matchSpeaker: false)
-        let before = Transcript.overlap(read, then: saved, matchSpeaker: false)
-        if before > after {
-            // Scrolled up past what was saved: the new part goes first, and the
-            // saved copies (with any fixed speakers) win for the shared messages.
-            return Transcript.merge(read, then: saved, overlapping: before, speakersFrom: .next)
+    /// Pairs of (saved index, read index) for the same message, in order: the
+    /// longest run of matches, allowing misreads and messages that only one
+    /// side has (a timestamp read as text, a bubble cut off at the edge).
+    static func matches(_ saved: [ChatMessage], _ read: [ChatMessage]) -> [(saved: Int, read: Int)] {
+        // Short messages ("lol", "haha") repeat in any chat, so they never
+        // anchor a match on their own; they come along with their neighbours.
+        func same(_ a: ChatMessage, _ b: ChatMessage) -> Bool {
+            guard min(Transcript.normalized(a.text).count, Transcript.normalized(b.text).count) >= 8 else { return false }
+            return Transcript.similar(a.text, b.text)
+                || Transcript.isCutOff(a.text, of: b.text, keepingEnd: true)
+                || Transcript.isCutOff(a.text, of: b.text, keepingEnd: false)
+                || Transcript.isCutOff(b.text, of: a.text, keepingEnd: true)
+                || Transcript.isCutOff(b.text, of: a.text, keepingEnd: false)
         }
-        return Transcript.merge(saved, then: read, overlapping: after, speakersFrom: .earlier)
+        let n = saved.count, m = read.count
+        guard n > 0, m > 0 else { return [] }
+        // Longest common subsequence, by fuzzy sameness.
+        var table = Array(repeating: Array(repeating: 0, count: m + 1), count: n + 1)
+        for i in stride(from: n - 1, through: 0, by: -1) {
+            for j in stride(from: m - 1, through: 0, by: -1) {
+                table[i][j] = same(saved[i], read[j])
+                    ? table[i + 1][j + 1] + 1
+                    : max(table[i + 1][j], table[i][j + 1])
+            }
+        }
+        var pairs: [(saved: Int, read: Int)] = []
+        var i = 0, j = 0
+        while i < n && j < m {
+            if same(saved[i], read[j]) && table[i][j] == table[i + 1][j + 1] + 1 {
+                pairs.append((i, j)); i += 1; j += 1
+            } else if table[i + 1][j] >= table[i][j + 1] {
+                i += 1
+            } else {
+                j += 1
+            }
+        }
+        return pairs
+    }
+
+    /// The saved chat with the new read fitted in, and where the read landed.
+    /// Where both have a message, the longer text and the saved speaker (which
+    /// may have been fixed by hand) win. Between and after shared messages the
+    /// new screenshot is the latest word, except that saved messages after the
+    /// read are kept when the read is an older part of the chat (scrolled up).
+    static func join(_ saved: [ChatMessage], _ read: [ChatMessage]) -> (messages: [ChatMessage], latest: Range<Int>) {
+        let pairs = matches(saved, read)
+        guard let first = pairs.first, let last = pairs.last else {
+            return (saved + read, saved.count..<(saved.count + read.count))
+        }
+        var out = Array(saved[..<first.saved])
+        // Read messages before the first shared one: new only if nothing saved comes before.
+        let lead = first.saved == 0 ? Array(read[..<first.read]) : []
+        let start = out.count
+        out += lead
+        for (k, pair) in pairs.enumerated() {
+            var message = saved[pair.saved]
+            let fresh = read[pair.read]
+            if Transcript.normalized(fresh.text).count > Transcript.normalized(message.text).count {
+                message.text = fresh.text
+            }
+            if message.replyTo == nil { message.replyTo = fresh.replyTo }
+            out.append(message)
+            if k + 1 < pairs.count {
+                let next = pairs[k + 1]
+                let savedGap = next.saved - pair.saved - 1, readGap = next.read - pair.read - 1
+                // The new screenshot wins in between, unless the saved chat has
+                // far more there (then the match is a repeat, not an overlap).
+                out += savedGap > readGap + 3 ? saved[(pair.saved + 1)..<next.saved]
+                                              : read[(pair.read + 1)..<next.read]
+            }
+        }
+        let readTail = read[(last.read + 1)...]
+        out += readTail
+        let end = out.count
+        if readTail.isEmpty {
+            out += saved[(last.saved + 1)...]   // the read was an older part of the chat
+        }
+        return (out, start..<end)
     }
 
     private func save() {

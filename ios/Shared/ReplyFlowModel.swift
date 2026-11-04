@@ -41,8 +41,15 @@ final class ReplyFlowModel: ObservableObject {
         self.store = store
     }
 
+    /// Where the latest screenshots' messages start in `messages` (the rest
+    /// were saved earlier). nil = all of `messages` came from them.
+    private var latestStart: Int?
+
     /// Saved messages from before the latest screenshots.
     var earlierCount: Int { max(messages.count - readCount, 0) }
+
+    /// Where to draw the "Your latest screenshot" line in the chat review.
+    var latestIndex: Int { min(latestStart ?? earlierCount, messages.count) }
 
     /// Keeps what was just read and joins it to the saved chat it belongs to.
     private func use(_ read: [ChatMessage]) {
@@ -50,11 +57,13 @@ final class ReplyFlowModel: ObservableObject {
         guard let store, !read.isEmpty else {
             messages = read
             chatID = nil
+            latestStart = nil
             return
         }
         let chat = store.remember(read, key: chatKey)
         chatID = chat.id
         messages = chat.messages
+        latestStart = chat.latest?.lowerBound
     }
 
     private func saveEdits() {
@@ -98,16 +107,19 @@ final class ReplyFlowModel: ObservableObject {
         messages = []
         previews = []
         do {
-            let images = try await RecentScreenshots.latest(min(max(count, 1), 3))
-            previews = images
+            let shots = try await RecentScreenshots.latestWithDates(min(max(count, 1), 3))
             var parts: [[ChatMessage]] = []
+            var dates: [Date] = []
             replyingTo = nil
-            for image in images {   // oldest first, so the newest bar wins
-                let chat = try await reader.readChat(image)
+            for shot in shots {   // oldest first, so the newest bar wins
+                let chat = try await reader.readChat(shot.image)
                 parts.append(chat.messages)
+                dates.append(shot.taken)
                 replyingTo = chat.replyingTo ?? replyingTo
             }
-            let all = Transcript.joinBestOrder(parts)
+            let kept = Transcript.sameChat(parts, taken: dates)
+            previews = kept.map { shots[$0].image }
+            let all = Transcript.joinBestOrder(kept.map { parts[$0] })
             use(all)
             guard !all.isEmpty else {
                 phase = .failed("Couldn't find chat messages in your last screenshots. Screenshot the chat and try again.")
@@ -133,6 +145,7 @@ final class ReplyFlowModel: ObservableObject {
         messages = [ChatMessage(speaker: .them, text: lines.joined(separator: " "))]
         readCount = 1
         chatID = nil
+        latestStart = nil
         replyingTo = nil
         await generate()
     }
@@ -151,6 +164,7 @@ final class ReplyFlowModel: ObservableObject {
         messages = Self.exampleChat
         readCount = messages.count
         chatID = nil
+        latestStart = nil
         replyingTo = nil
         await generate()
     }
@@ -191,6 +205,7 @@ final class ReplyFlowModel: ObservableObject {
         messages = pending.messages
         readCount = min(pending.readCount ?? pending.messages.count, pending.messages.count)
         chatID = nil
+        latestStart = nil
         replies = pending.replies
         editedSinceReplies = false
         phase = .done
@@ -203,6 +218,7 @@ final class ReplyFlowModel: ObservableObject {
         replies = []
         readCount = 0
         chatID = nil
+        latestStart = nil
         replyingTo = nil
         editedSinceReplies = false
     }

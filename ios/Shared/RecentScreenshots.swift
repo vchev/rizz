@@ -35,6 +35,12 @@ enum RecentScreenshots {
 
     /// The newest `count` screenshots, oldest first, downscaled for low memory use.
     static func latest(_ count: Int = 2, maxWidth: CGFloat = ScreenshotReader.maxWidth) async throws -> [UIImage] {
+        try await latestWithDates(count, maxWidth: maxWidth).map(\.image)
+    }
+
+    /// Like `latest`, with when each screenshot was taken. Oldest first.
+    static func latestWithDates(_ count: Int = 2, maxWidth: CGFloat = ScreenshotReader.maxWidth) async throws
+        -> [(image: UIImage, taken: Date)] {
         // Inside the keyboard, iOS may report a status that differs from the
         // app's, so try the fetch anyway and only blame access if it finds nothing.
         let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
@@ -48,10 +54,22 @@ enum RecentScreenshots {
             throw status == .authorized ? Failure.noneFound : Failure.noAccess(status.rawValue)
         }
 
-        var images: [UIImage] = []
+        var images: [(image: UIImage, taken: Date)] = []
         for asset in newestFirst.reversed() {
-            if let image = await image(for: asset, maxWidth: maxWidth) {
-                images.append(image)
+            // A screenshot taken a moment ago may not be ready to load yet: wait
+            // for the newest one rather than quietly reading only older ones.
+            let isNewest = asset.localIdentifier == newestFirst.first?.localIdentifier
+            var image = await image(for: asset, maxWidth: maxWidth)
+            var tries = 0
+            while image == nil && isNewest && tries < 8 {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                image = await self.image(for: asset, maxWidth: maxWidth)
+                tries += 1
+            }
+            if let image {
+                images.append((image, asset.creationDate ?? .distantPast))
+            } else if isNewest {
+                throw Failure.noneFound
             }
         }
         guard !images.isEmpty else { throw Failure.noneFound }
