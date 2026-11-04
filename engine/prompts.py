@@ -1,6 +1,6 @@
 """Prompts for the reply engine. Bump PROMPT_VERSION whenever a prompt changes."""
 
-PROMPT_VERSION = 6
+PROMPT_VERSION = 7
 
 SYSTEM_PROMPT = """You write the user's next text message in a dating conversation.
 
@@ -82,20 +82,67 @@ def system_prompt(under_18=False):
     return SYSTEM_PROMPT + (UNDER_18_RULE if under_18 else "")
 
 
-def user_prompt(messages, platform, n, tone=None):
-    """messages: list of {"speaker": "you"|"them", "text": str}, oldest first."""
+def _norm(text):
+    return " ".join("".join(c.lower() if c.isalnum() else " " for c in text).split())
+
+
+def _quoted_index(messages, before, quote):
+    """Index of the earlier message that `quote` (a shortened copy) comes from, or None."""
+    q = _norm(quote.rstrip(".…"))
+    if len(q) < 4:
+        return None
+    for i in range(before - 1, -1, -1):
+        if _norm(messages[i]["text"]).startswith(q) or q.startswith(_norm(messages[i]["text"])):
+            return i
+    return None
+
+
+def unanswered_match_messages(messages):
+    """Match messages still waiting for an answer although the user sent the last message.
+
+    Happens with quoted replies: the user's last message answers an older match message
+    (it quotes it), so a match message sent after that one is still unanswered.
+    """
+    if not messages or messages[-1]["speaker"] != "you":
+        return []
+    answered = set()
+    for i, m in enumerate(messages):
+        if m["speaker"] != "you":
+            continue
+        j = _quoted_index(messages, i, m["reply_to"]) if m.get("reply_to") else None
+        if j is not None and messages[j]["speaker"] == "them":
+            answered.add(j)          # a quoted reply answers just that message
+        else:
+            answered.update(k for k in range(i) if messages[k]["speaker"] == "them")
+    return [m["text"] for k, m in enumerate(messages) if m["speaker"] == "them" and k not in answered]
+
+
+def user_prompt(messages, platform, n, tone=None, replying_to=None):
+    """messages: list of {"speaker": "you"|"them", "text": str, "reply_to": str?}, oldest first."""
     app = PLATFORM_NAMES.get((platform or "").lower(), "a dating app")
     lines = []
     for m in messages:
         who = "ME" if m["speaker"] == "you" else "MATCH"
-        lines.append("%s: %s" % (who, m["text"]))
+        if m.get("reply_to"):
+            other = "MATCH" if who == "ME" else "ME"
+            lines.append('%s (quoting %s: "%s"): %s' % (who, other, m["reply_to"], m["text"]))
+        else:
+            lines.append("%s: %s" % (who, m["text"]))
     parts = [
         "App: %s" % app,
-        "Conversation so far (oldest first; ME is the user):",
+        "Conversation so far (oldest first; ME is the user; \"quoting\" means a reply to that earlier message):",
         "\n".join(lines),
         "",
     ]
-    if messages and messages[-1]["speaker"] == "you":
+    waiting = unanswered_match_messages(messages)
+    if replying_to:
+        parts.append('The user is replying to this message from the match: "%s". Every reply answers '
+                     "that message." % replying_to)
+    elif waiting:
+        parts.append("The user's last message answered an older message, so the match's message(s) "
+                     "below are still unanswered. Every reply answers them (not the user's own message):\n"
+                     + "\n".join("MATCH: %s" % t for t in waiting))
+    elif messages and messages[-1]["speaker"] == "you":
         parts.append("The user sent the last message. Write a natural follow-up they could send next "
                      "(adding to their own message, or moving things along), not a reply to themselves.")
     if tone in TONE_RULES:

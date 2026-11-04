@@ -14,9 +14,13 @@ struct ChatMessage: Identifiable, Codable, Hashable {
     var id = UUID()
     var speaker: Speaker
     var text: String
+    /// For a quoted reply: the start of the earlier message it quotes, as the
+    /// app shows it ("Maybe. Not necessary. Sometimes it's j…").
+    var replyTo: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case speaker, text
+        case replyTo = "reply_to"
     }
 }
 
@@ -52,6 +56,26 @@ enum Transcript {
         }
         let ordered = totalOverlap(parts.reversed()) > totalOverlap(parts) ? Array(parts.reversed()) : parts
         return ordered.reduce([ChatMessage]()) { append($1, to: $0) }
+    }
+
+    /// Which screenshots (indexes, oldest first) belong to the same chat as the
+    /// newest one. An older screenshot is kept if it shares a message with the
+    /// kept ones, or was taken within 2 minutes of the next one (scrolling a
+    /// whole screen between shots). Otherwise it's from another chat or an
+    /// older moment, and mixing it in would muddle the replies.
+    static func sameChat(_ parts: [[ChatMessage]], taken: [Date], window: TimeInterval = 120) -> [Int] {
+        guard let newest = parts.indices.last else { return [] }
+        var kept = [newest]
+        var joined = parts[newest]
+        for i in stride(from: newest - 1, through: 0, by: -1) {
+            let shares = overlap(parts[i], then: joined) > 0 || overlap(joined, then: parts[i]) > 0
+                || parts[i].contains { m in joined.contains { similar($0.text, m.text) && normalized(m.text).count >= 8 } }
+            let close = i + 1 < taken.count && abs(taken[i + 1].timeIntervalSince(taken[i])) <= window
+            guard shares || close else { break }
+            kept.insert(i, at: 0)
+            joined = parts[i] + joined
+        }
+        return kept
     }
 
     static func joinBestOrder(_ first: [ChatMessage], _ second: [ChatMessage]) -> [ChatMessage] {
@@ -92,6 +116,7 @@ enum Transcript {
         for i in 0..<count {
             let nextIsLonger = normalized(next[i].text).count > normalized(out[start + i].text).count
             if nextIsLonger { out[start + i].text = next[i].text }
+            if out[start + i].replyTo == nil { out[start + i].replyTo = next[i].replyTo }
             switch speakersFrom {
             case .earlier: break
             case .next: out[start + i].speaker = next[i].speaker

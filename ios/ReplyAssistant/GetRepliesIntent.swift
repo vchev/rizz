@@ -30,8 +30,11 @@ struct GetCoaxRepliesIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
         var messages: [ChatMessage] = []
+        var replyingTo: String?
         if let data = screenshot?.data, let image = UIImage(data: data) {
-            messages = try await ScreenshotReader().read(image)
+            let chat = try await ScreenshotReader().readChat(image)
+            messages = chat.messages
+            replyingTo = chat.replyingTo
         } else if let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             messages = [ChatMessage(speaker: .them, text: text)]
         }
@@ -44,7 +47,7 @@ struct GetCoaxRepliesIntent: AppIntent {
         }
 
         let replies = try await ReplyServices.makeDefault()
-            .suggestReplies(for: messages, platform: "imessage", tone: nil)
+            .suggestReplies(for: messages, platform: "imessage", tone: nil, replyingTo: replyingTo)
         guard let best = replies.first else { throw NothingToReadError() }
 
         // Best reply on the clipboard, and all of them waiting in the Coax keyboard.

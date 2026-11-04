@@ -15,8 +15,18 @@ enum ScreenshotReaderError: LocalizedError {
 /// at this step) and turns it into messages.
 struct ScreenshotReader {
     func read(_ image: UIImage) async throws -> [ChatMessage] {
+        try await readChat(image).messages
+    }
+
+    struct Chat {
+        var messages: [ChatMessage]
+        /// What the user has started replying to, from the bar above the text box.
+        var replyingTo: String?
+    }
+
+    func readChat(_ image: UIImage) async throws -> Chat {
         let lines = try await recognizeLines(in: image)
-        return BubbleLayout.messages(from: lines)
+        return Chat(messages: BubbleLayout.messages(from: lines), replyingTo: BubbleLayout.replyingTo(in: lines))
     }
 
     /// Screenshots are downscaled to this width first. Text stays readable and
