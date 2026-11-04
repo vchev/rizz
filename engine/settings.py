@@ -27,9 +27,16 @@ def load_dotenv(path=None):
         os.environ.setdefault(key, value.strip().strip('"').strip("'"))
 
 
-def api_key():
+def provider():
+    """Which model service to use, from the key that is set: a Claude key wins over OpenRouter."""
     load_dotenv()
-    key = os.environ.get("OPENROUTER_API_KEY", "").strip()
-    if not key:
-        raise RuntimeError("OPENROUTER_API_KEY is not set (put it in .env or the hosting secrets).")
-    return key
+    if os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        return "anthropic", os.environ["ANTHROPIC_API_KEY"].strip()
+    if os.environ.get("OPENROUTER_API_KEY", "").strip():
+        return "openrouter", os.environ["OPENROUTER_API_KEY"].strip()
+    raise RuntimeError("No model key set: add ANTHROPIC_API_KEY or OPENROUTER_API_KEY "
+                       "(in .env or the hosting secrets).")
+
+
+def api_key():
+    return provider()[1]
