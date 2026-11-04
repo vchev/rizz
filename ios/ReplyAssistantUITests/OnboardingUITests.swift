@@ -1,32 +1,29 @@
 import XCTest
 
-/// Walks through first-run setup in the simulator. The age is picked by tapping.
+/// Walks through first-run setup in the simulator. There's no age screen;
+/// "-appleAge" stands in for Apple's age range.
 final class OnboardingUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
     }
 
-    private func launch() -> XCUIApplication {
+    private func launch(appleAge: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-onboarding"]
+        app.launchArguments = ["-uiTesting", "-onboarding"] + (appleAge.map { ["-appleAge", $0] } ?? [])
         app.launch()
         return app
     }
 
-    private func pickAge(_ app: XCUIApplication, _ answer: String) {
+    private func getStarted(_ app: XCUIApplication) {
         let start = app.buttons["Get started"]
         XCTAssertTrue(start.waitForExistence(timeout: 5))
         save(app, "onboarding-1-welcome")
         start.tap()
-        let button = app.buttons[answer]
-        XCTAssertTrue(button.waitForExistence(timeout: 5), "Age buttons should show right away")
-        save(app, "onboarding-2-age")
-        button.tap()
     }
 
     func testAdultSeesARealReplyThenSetsUpKeyboard() throws {
         let app = launch()
-        pickAge(app, "I'm 18 or older")
+        getStarted(app)   // no age screen: straight to replies
 
         let reply = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] %@", "Sample reply")).firstMatch
         XCTAssertTrue(reply.waitForExistence(timeout: 30), "Replies should appear in the first minute")
@@ -51,8 +48,8 @@ final class OnboardingUITests: XCTestCase {
     }
 
     func testUnder16IsTurnedAway() throws {
-        let app = launch()
-        pickAge(app, "I'm under 16")
+        let app = launch(appleAge: "under16")
+        getStarted(app)
         XCTAssertTrue(app.staticTexts["Coax is for people 16 and older"].waitForExistence(timeout: 5))
         save(app, "onboarding-under-16")
 
@@ -73,8 +70,8 @@ final class OnboardingUITests: XCTestCase {
     }
 
     func testSixteenOrSeventeenAsksForParentOK() throws {
-        let app = launch()
-        pickAge(app, "I'm 16 or 17")
+        let app = launch(appleAge: "teen")
+        getStarted(app)
         let ok = app.buttons["My parent or guardian said OK"]
         XCTAssertTrue(ok.waitForExistence(timeout: 5))
         save(app, "onboarding-teen-parent")

@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// First-run setup: welcome, age check (16+), a real reply in under a minute,
+/// First-run setup: welcome, a real reply in under a minute,
 /// then the one-time keyboard setup. Shown until it's finished once.
 ///
 /// Order follows the onboarding design doc, with the practice reply moved up
@@ -10,15 +10,21 @@ struct OnboardingView: View {
     var onFinish: () -> Void
 
     enum Step: Equatable {
-        case welcome, checkingAge, askAge, turnedAway, parentOK
+        case welcome, checkingAge, turnedAway, parentOK
         case tryIt, fullAccess, keyboard, photos
     }
 
     @State private var step: Step
     @Environment(\.scenePhase) private var scenePhase
 
-    /// UI tests skip Apple's age sheet, which they can't tap.
     private let uiTesting = ProcessInfo.processInfo.arguments.contains("-uiTesting")
+
+    /// UI tests stand in for Apple's answer with "-appleAge teen" (or adult, under16).
+    private static var testAppleAge: AgeGroup? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-appleAge"), i + 1 < args.count else { return nil }
+        return AgeGroup(rawValue: args[i + 1])
+    }
 
     init(onFinish: @escaping () -> Void) {
         self.onFinish = onFinish
@@ -40,7 +46,6 @@ struct OnboardingView: View {
             switch step {
             case .welcome: welcome
             case .checkingAge: checkingAge
-            case .askAge: askAge
             case .turnedAway: turnedAway
             case .parentOK: parentOK
             case .tryIt: TryItStep { go(.fullAccess) }
@@ -57,17 +62,23 @@ struct OnboardingView: View {
 
     // MARK: Age
 
-    /// Apple's age range when it's switched on (needs the paid developer account),
-    /// with a time limit so it can never hang; otherwise the user taps their age.
+    /// No age screen (decided Nov 4): the App Store's 16+ rating gates downloads.
+    /// Apple's age range, once switched on (paid developer account), quietly sets
+    /// teen mode or turns away under-16s, with a time limit so it can never hang.
+    /// No answer = carry on to the sample replies.
     private func checkAge() {
-        guard AgeCheck.isEnabled, !uiTesting else { go(.askAge); return }
+        if uiTesting {
+            if let group = Self.testAppleAge { set(group) } else { go(.tryIt) }
+            return
+        }
+        guard AgeCheck.isEnabled else { go(.tryIt); return }
         go(.checkingAge)
         Task {
             if let group = await AgeCheck.askApple(timeout: 3) {
                 AgeSettings.source = "apple"
                 set(group)
             } else {
-                go(.askAge)
+                go(.tryIt)
             }
         }
     }
@@ -98,23 +109,6 @@ struct OnboardingView: View {
                  subtitle: "iPhone shares only a range, never your birthday.") {
             ProgressView()
         }
-    }
-
-    private var askAge: some View {
-        StepPage(icon: "person.crop.circle.badge.checkmark",
-                 title: "How old are you?",
-                 subtitle: "Coax is for people 16 and older.") {
-            VStack(spacing: 12) {
-                Button("I'm 18 or older") { tapped(.adult) }.buttonStyle(PrimaryButton())
-                Button("I'm 16 or 17") { tapped(.teen) }.buttonStyle(PrimaryButton())
-                Button("I'm under 16") { tapped(.under16) }.buttonStyle(SecondaryButton())
-            }
-        }
-    }
-
-    private func tapped(_ group: AgeGroup) {
-        AgeSettings.source = "tapped"
-        set(group)
     }
 
     private var turnedAway: some View {
