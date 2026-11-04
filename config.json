@@ -1,5 +1,8 @@
 {
   "gate1_would_send_rate_must_exceed": 0.5,
   "replies_per_request": 3,
-  "model": null
+  "model": "anthropic/claude-haiku-5.5",
+  "openrouter_provider": {
+    "zdr": true
+  }
 }
