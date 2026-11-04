@@ -14,9 +14,13 @@ struct ChatMessage: Identifiable, Codable, Hashable {
     var id = UUID()
     var speaker: Speaker
     var text: String
+    /// For a quoted reply: the start of the earlier message it quotes, as the
+    /// app shows it ("Maybe. Not necessary. Sometimes it's j…").
+    var replyTo: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case speaker, text
+        case replyTo = "reply_to"
     }
 }
 
@@ -92,6 +96,7 @@ enum Transcript {
         for i in 0..<count {
             let nextIsLonger = normalized(next[i].text).count > normalized(out[start + i].text).count
             if nextIsLonger { out[start + i].text = next[i].text }
+            if out[start + i].replyTo == nil { out[start + i].replyTo = next[i].replyTo }
             switch speakersFrom {
             case .earlier: break
             case .next: out[start + i].speaker = next[i].speaker

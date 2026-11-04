@@ -22,6 +22,8 @@ final class ReplyFlowModel: ObservableObject {
     /// How many messages the latest screenshots showed. `messages` can hold
     /// more: the earlier part of the same chat, saved on the phone.
     @Published var readCount = 0
+    /// The message the user started a quoted reply to (Bumble's bar above the text box).
+    var replyingTo: String?
 
     let service: ReplyService
     private let reader = ScreenshotReader()
@@ -72,8 +74,11 @@ final class ReplyFlowModel: ObservableObject {
         messages = []
         do {
             var all: [ChatMessage] = []
+            replyingTo = nil
             for image in images {
-                all = Transcript.append(try await reader.read(image), to: all)
+                let chat = try await reader.readChat(image)
+                all = Transcript.append(chat.messages, to: all)
+                replyingTo = chat.replyingTo ?? replyingTo
             }
             use(all)
             guard !all.isEmpty else {
@@ -96,8 +101,11 @@ final class ReplyFlowModel: ObservableObject {
             let images = try await RecentScreenshots.latest(min(max(count, 1), 3))
             previews = images
             var parts: [[ChatMessage]] = []
-            for image in images {
-                parts.append(try await reader.read(image))
+            replyingTo = nil
+            for image in images {   // oldest first, so the newest bar wins
+                let chat = try await reader.readChat(image)
+                parts.append(chat.messages)
+                replyingTo = chat.replyingTo ?? replyingTo
             }
             let all = Transcript.joinBestOrder(parts)
             use(all)
@@ -125,6 +133,7 @@ final class ReplyFlowModel: ObservableObject {
         messages = [ChatMessage(speaker: .them, text: lines.joined(separator: " "))]
         readCount = 1
         chatID = nil
+        replyingTo = nil
         await generate()
     }
 
@@ -142,6 +151,7 @@ final class ReplyFlowModel: ObservableObject {
         messages = Self.exampleChat
         readCount = messages.count
         chatID = nil
+        replyingTo = nil
         await generate()
     }
 
@@ -152,7 +162,8 @@ final class ReplyFlowModel: ObservableObject {
         }
         phase = .generating
         do {
-            replies = try await service.suggestReplies(for: Array(messages.suffix(Self.maxMessagesSent)), platform: "imessage", tone: tone)
+            replies = try await service.suggestReplies(for: Array(messages.suffix(Self.maxMessagesSent)), platform: "imessage", tone: tone,
+                                                       replyingTo: replyingTo)
             editedSinceReplies = false
             phase = .done
         } catch {
@@ -192,6 +203,7 @@ final class ReplyFlowModel: ObservableObject {
         replies = []
         readCount = 0
         chatID = nil
+        replyingTo = nil
         editedSinceReplies = false
     }
 }

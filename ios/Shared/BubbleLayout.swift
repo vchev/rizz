@@ -48,11 +48,11 @@ enum BubbleLayout {
 
         return groupIntoBubbles(dropTinyText(kept)).compactMap { bubble in
             guard let speaker = speaker(for: bubble) else { return nil }
-            let lines = withoutQuotes(bubble.lines)
+            let (lines, quote) = splitQuote(bubble.lines)
             guard !lines.isEmpty else { return nil }
             let text = lines.map(\.text).joined(separator: " ")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            return text.isEmpty ? nil : ChatMessage(speaker: speaker, text: text)
+            return text.isEmpty ? nil : ChatMessage(speaker: speaker, text: text, replyTo: quote)
         }
     }
 
@@ -69,20 +69,41 @@ enum BubbleLayout {
 
     /// A quoted reply (Bumble, WhatsApp, Instagram) shows the quoted person's
     /// name, then a shortened copy of their message ending in "…", above the
-    /// actual reply. Both lines are dropped: the name would muddle who's who,
-    /// and the quote belongs to the other person.
-    static func withoutQuotes(_ lines: [TextLine]) -> [TextLine] {
+    /// actual reply. Those lines aren't part of the message (the name would
+    /// muddle who's who); the quote is kept aside, so replies know which
+    /// earlier message this one answered.
+    static func splitQuote(_ lines: [TextLine]) -> (lines: [TextLine], quote: String?) {
         var out: [TextLine] = []
+        var quote: String?
         var i = 0
         while i < lines.count {
             if i + 1 < lines.count, isNameLike(lines[i].text), isShortened(lines[i + 1].text) {
+                quote = quote ?? lines[i + 1].text.trimmingCharacters(in: .whitespaces)
                 i += 2
                 continue
             }
             out.append(lines[i])
             i += 1
         }
-        return out
+        return (out, quote)
+    }
+
+    static func withoutQuotes(_ lines: [TextLine]) -> [TextLine] { splitQuote(lines).lines }
+
+    /// The "replying to" bar some apps show above the text box when you've
+    /// started a quoted reply (Bumble: "Chai" / "Btw! I'm sure you get this…").
+    /// It sits off the bubbles, below the last message. Returns the quoted text.
+    static func replyingTo(in lines: [TextLine]) -> String? {
+        let sorted = lines.filter { $0.confidence >= minConfidence }.sorted { $0.box.minY < $1.box.minY }
+        let lastBubbleBottom = sorted.filter { $0.onBubble == true }.map(\.box.maxY).max() ?? 0
+        for (name, quote) in zip(sorted, sorted.dropFirst()) {
+            guard name.onBubble != true, quote.onBubble != true,
+                  name.box.minY > lastBubbleBottom, name.box.minY > 0.5,
+                  abs(name.box.minX - quote.box.minX) < sameEdgeTolerance,
+                  isNameLike(name.text), isShortened(quote.text) else { continue }
+            return quote.text.trimmingCharacters(in: .whitespaces)
+        }
+        return nil
     }
 
     /// "Chai", "Vanessa", "Mary Jo": one or two capitalized words, no punctuation.

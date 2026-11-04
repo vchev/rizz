@@ -8,7 +8,15 @@ import Foundation
 protocol ReplyService {
     /// True when replies are placeholders, so the app can say so.
     var isSample: Bool { get }
-    func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?) async throws -> [ReplySuggestion]
+    /// `replyingTo`: the message the user has started a quoted reply to, if any.
+    func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?,
+                        replyingTo: String?) async throws -> [ReplySuggestion]
+}
+
+extension ReplyService {
+    func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?) async throws -> [ReplySuggestion] {
+        try await suggestReplies(for: messages, platform: platform, tone: tone, replyingTo: nil)
+    }
 }
 
 /// Optional nudge for a new set of replies.
@@ -51,7 +59,8 @@ enum ReplyServices {
 struct SampleReplyService: ReplyService {
     var isSample: Bool { true }
 
-    func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?) async throws -> [ReplySuggestion] {
+    func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?,
+                        replyingTo: String?) async throws -> [ReplySuggestion] {
         try await Task.sleep(nanoseconds: 700_000_000)
         let samples: [String]
         switch tone {
@@ -96,6 +105,12 @@ struct HTTPReplyService: ReplyService {
         var n: Int
         var tone: ReplyTone?
         var messages: [ChatMessage]
+        var replyingTo: String?
+
+        enum CodingKeys: String, CodingKey {
+            case platform, n, tone, messages
+            case replyingTo = "replying_to"
+        }
     }
 
     struct ResponseBody: Decodable {
@@ -117,14 +132,16 @@ struct HTTPReplyService: ReplyService {
         }
     }
 
-    func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?) async throws -> [ReplySuggestion] {
+    func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?,
+                        replyingTo: String?) async throws -> [ReplySuggestion] {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token { request.setValue(token, forHTTPHeaderField: "X-Coax-Token") }
         request.httpBody = try JSONEncoder().encode(
-            RequestBody(platform: platform, n: AppConfig.repliesPerRequest, tone: tone, messages: messages))
+            RequestBody(platform: platform, n: AppConfig.repliesPerRequest, tone: tone, messages: messages,
+                        replyingTo: replyingTo))
 
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {

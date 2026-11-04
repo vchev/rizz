@@ -93,6 +93,32 @@ class Prompts(unittest.TestCase):
         p = prompts.user_prompt([{"speaker": "you", "text": "so anyway"}], "imessage", 3)
         self.assertIn("The user sent the last message", p)
 
+    def test_quoted_reply_leaves_a_later_compliment_unanswered(self):
+        # Vanessa's Bumble chat with Chai (Nov 4): her last message quotes his older one,
+        # so his compliment after it still needs an answer.
+        chat = reply.clean_messages([
+            {"speaker": "you", "text": "So it's dependent on who updates their app"},
+            {"speaker": "them", "text": "Maybe. Not necessary. Sometimes it's just an experiment variant",
+             "reply_to": "So it's dependent on who updates thei..."},
+            {"speaker": "them", "text": "Btw! I'm sure you get this a lot but your have a really nice smile"},
+            {"speaker": "you", "text": "Ohh that's true!", "reply_to": "Maybe. Not necessary. Sometimes it's j\u2026"},
+        ])
+        self.assertEqual(prompts.unanswered_match_messages(chat),
+                         ["Btw! I'm sure you get this a lot but your have a really nice smile"])
+        p = prompts.user_prompt(chat, "bumble", 3)
+        self.assertIn("still unanswered", p)
+        self.assertIn('ME (quoting MATCH: "Maybe. Not necessary.', p)
+        self.assertNotIn("The user sent the last message", p)
+
+    def test_plain_last_message_mine_has_nothing_unanswered(self):
+        chat = [{"speaker": "them", "text": "hi"}, {"speaker": "you", "text": "hey!"}]
+        self.assertEqual(prompts.unanswered_match_messages(chat), [])
+
+    def test_replying_to_bar(self):
+        p = prompts.user_prompt([{"speaker": "them", "text": "nice smile"}, {"speaker": "you", "text": "haha"}],
+                                "bumble", 3, replying_to="nice smile")
+        self.assertIn('replying to this message from the match: "nice smile"', p)
+
     def test_under_18(self):
         self.assertIn("under 18", prompts.system_prompt(under_18=True))
         self.assertNotIn("under 18", prompts.system_prompt())
