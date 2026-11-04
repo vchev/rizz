@@ -2,7 +2,10 @@
 
     POST /api/reply   {"platform": "imessage", "n": 3, "tone": "funnier", "under_18": false,
                        "messages": [{"speaker": "them", "text": "...", "reply_to": "..."}],
-                       "replying_to": "..."}   (reply_to and replying_to are optional)
+                       "replying_to": "...",
+                       "voice": {"length": 0.2, "caps": 0.1, "humour": 0.8, "emoji": 0.1,
+                                 "forward": 0.5, "examples": ["..."]}}
+                      (reply_to, replying_to and voice are optional)
     ->  200 {"replies": [{"text": "...", "label": "playful"}], "prompt_version": 6}   (label may be missing)
 
     GET  /api/reply   -> {"ok": true}   (health check, no model call)
@@ -47,6 +50,7 @@ def handle(body_bytes, token_header=None, call=None):
             under_18=bool(data.get("under_18", False)),
             call=call,
             replying_to=data.get("replying_to"),
+            voice=data.get("voice"),
         )
     except reply.BadRequest as e:
         return 400, {"error": str(e)}

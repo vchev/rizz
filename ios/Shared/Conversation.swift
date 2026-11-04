@@ -24,6 +24,17 @@ struct ChatMessage: Identifiable, Codable, Hashable {
     }
 }
 
+extension ChatMessage {
+    /// A made-up chat for trying the app without a screenshot. Never used to learn the user's voice.
+    static let example: [ChatMessage] = [
+        ChatMessage(speaker: .them, text: "ok your third photo, is that a pottery wheel??"),
+        ChatMessage(speaker: .you, text: "guilty. I took one class and now I think I'm a ceramicist"),
+        ChatMessage(speaker: .them, text: "haha that's amazing. what did you make"),
+        ChatMessage(speaker: .you, text: "a bowl that is technically also a plate"),
+        ChatMessage(speaker: .them, text: "honestly iconic. are you free this weekend? I want to see this bowl-plate"),
+    ]
+}
+
 /// One suggested reply.
 struct ReplySuggestion: Identifiable, Codable, Hashable {
     var id = UUID()
