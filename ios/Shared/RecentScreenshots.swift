@@ -114,17 +114,23 @@ final class ScreenshotWatcher: NSObject, PHPhotoLibraryChangeObserver {
     private var quietUntil = Date.distantPast
     private let queue = DispatchQueue(label: "coax.screenshot-watcher", qos: .utility)
 
-    func start() {
+    /// `lookBack`: also read a screenshot taken up to this many seconds before
+    /// starting (the iMessage app uses this, for "screenshot, then open Coax").
+    func start(lookBack: TimeInterval = 0) {
         stop()
-        since = Date()
+        since = Date().addingTimeInterval(-lookBack)
         lastSeenID = nil
-        checking = true
-        queue.async { [weak self] in
-            let newest = RecentScreenshots.newest()
-            Task { @MainActor in
-                guard let self else { return }
-                self.lastSeenID = newest?.id
-                self.checking = false
+        if lookBack > 0 {
+            check()
+        } else {
+            checking = true
+            queue.async { [weak self] in
+                let newest = RecentScreenshots.newest()
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.lastSeenID = newest?.id
+                    self.checking = false
+                }
             }
         }
         PHPhotoLibrary.shared().register(self)
