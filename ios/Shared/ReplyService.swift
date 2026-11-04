@@ -41,12 +41,10 @@ struct SampleReplyService: ReplyService {
 
     func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?) async throws -> [ReplySuggestion] {
         try await Task.sleep(nanoseconds: 700_000_000)
-        let lastFromThem = messages.last(where: { $0.speaker == .them })?.text ?? ""
-        let topic = lastFromThem.isEmpty ? "that" : "\u{201C}\(lastFromThem.prefix(40))\u{201D}"
         let samples: [String]
         switch tone {
         case .funnier:
-            samples = ["Sample (funnier): ok but \(topic) is unhinged and I respect it",
+            samples = ["Sample (funnier): ok that is unhinged and I respect it",
                        "Sample (funnier): bold of you to say that before our first date",
                        "Sample (funnier): I'm telling my mom about this"]
         case .flirtier:
@@ -56,7 +54,7 @@ struct SampleReplyService: ReplyService {
         case .shorter:
             samples = ["Sample (shorter): haha yes", "Sample (shorter): tell me more", "Sample (shorter): coffee?"]
         case nil:
-            samples = ["Sample reply: ok wait, tell me more about \(topic)",
+            samples = ["Sample reply: ok wait, tell me more",
                        "Sample reply: haha fair. what are you up to this week?",
                        "Sample reply: honestly same. coffee sometime?"]
         }
