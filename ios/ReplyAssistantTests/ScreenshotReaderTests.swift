@@ -11,7 +11,7 @@ final class ScreenshotReaderTests: XCTestCase {
     }
 
     /// A 1179 x 2556 image, the size of an iPhone 15 screenshot.
-    private func renderChat(_ bubbles: [Bubble]) -> UIImage {
+    private func renderChat(_ bubbles: [Bubble], extras: Bool = false) -> UIImage {
         let size = CGSize(width: 1179, height: 2556)
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
@@ -51,6 +51,18 @@ final class ScreenshotReaderTests: XCTestCase {
                           attributes: attrs, context: nil)
                 y += h + 30
             }
+
+            guard extras else { return }
+            // App text that isn't a message: a plain left-aligned prompt with no
+            // bubble, and an input field with a greyed-out placeholder.
+            let plain: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 46), .foregroundColor: UIColor.black]
+            ("Your move, ask about her trip" as NSString).draw(at: CGPoint(x: 60, y: y + 40), withAttributes: plain)
+            let field = CGRect(x: 48, y: size.height - 260, width: size.width - 96, height: 120)
+            UIColor(white: 0.95, alpha: 1).setFill()
+            UIBezierPath(roundedRect: field, cornerRadius: 60).fill()
+            let placeholder: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 48),
+                                                              .foregroundColor: UIColor(white: 0.56, alpha: 1)]
+            ("Type something fun" as NSString).draw(at: CGPoint(x: 100, y: field.minY + 32), withAttributes: placeholder)
         }
     }
 
@@ -75,5 +87,17 @@ final class ScreenshotReaderTests: XCTestCase {
         XCTAssertTrue(words(messages[0].text).contains("free this weekend"))
         XCTAssertTrue(words(messages[2].text).contains("dumplings"), "A wrapped bubble should stay one message")
         XCTAssertFalse(messages.contains { words($0.text).contains("delivered") })
+    }
+
+    func testSkipsTextOutsideBubblesAndGreyPlaceholders() async throws {
+        let image = renderChat([
+            Bubble(kind: .them, text: "are you free this weekend"),
+            Bubble(kind: .you, text: "maybe, what did you have in mind"),
+        ], extras: true)
+        let messages = try await ScreenshotReader().read(image)
+        let read = messages.map { "\($0.speaker): \($0.text)" }
+        XCTAssertEqual(messages.count, 2, "Read: \(read)")
+        XCTAssertFalse(messages.contains { words($0.text).contains("something fun") }, "Placeholder kept: \(read)")
+        XCTAssertFalse(messages.contains { words($0.text).contains("your move") }, "Bubble-less text kept: \(read)")
     }
 }

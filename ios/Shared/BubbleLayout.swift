@@ -6,6 +6,13 @@ import Foundation
 struct TextLine: Hashable {
     var text: String
     var box: CGRect
+    /// How sure text recognition was (0...1). Low = likely misread.
+    var confidence: Float = 1
+    /// Whether the text sits on a bubble (a colour different from the screen
+    /// background). nil = not measured.
+    var onBubble: Bool? = nil
+    /// Greyed-out text, like a placeholder ("Aa", "Type a message").
+    var isFaint: Bool = false
 }
 
 /// Turns lines of text from a chat screenshot into messages.
@@ -24,11 +31,16 @@ enum BubbleLayout {
     static let sameEdgeTolerance: CGFloat = 0.03
     /// Max vertical gap between two lines of one bubble, as a share of line height.
     static let lineGapFactor: CGFloat = 0.8
+    /// Lines read with less confidence than this are dropped as gibberish.
+    static let minConfidence: Float = 0.4
 
     static func messages(from lines: [TextLine]) -> [ChatMessage] {
         let kept = lines
             .filter { $0.box.minY >= topCutoff }
             .filter { !isChrome($0.text) }
+            .filter { $0.confidence >= minConfidence }
+            .filter { $0.text.contains(where: { $0.isLetter || $0.isNumber }) }
+            .filter { $0.onBubble != false && !$0.isFaint }
             .sorted { $0.box.minY < $1.box.minY }
 
         return groupIntoBubbles(kept).compactMap { bubble in
@@ -80,6 +92,8 @@ enum BubbleLayout {
         let exact: Set<String> = [
             "imessage", "text message", "message", "messages", "delivered", "read", "seen",
             "type a message", "send a message", "write a message", "today", "yesterday",
+            "aa", "start typing", "type something", "say something nice", "ask them out",
+            "your turn", "their turn", "send", "gif",
         ]
         if exact.contains(lower) { return true }
         for prefix in ["read ", "seen ", "delivered "] where lower.hasPrefix(prefix) {
