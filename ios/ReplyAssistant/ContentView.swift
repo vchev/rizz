@@ -55,7 +55,7 @@ struct ContentView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("How to use it").font(.headline)
-                    Step(number: 1, text: "In Hinge, Messages or any chat, take a screenshot (or long-press their message and tap Copy).")
+                    Step(number: 1, text: "In Hinge, Messages or any chat, scroll up one screen and take a screenshot, then scroll back down and take another.")
                     Step(number: 2, text: "Tap the message box, then hold the 🌐 key and pick Coax.")
                     Step(number: 3, text: "Tap Last 2 screenshots (or What I copied), then tap a reply to type it in.")
                 }
