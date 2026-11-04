@@ -32,6 +32,9 @@ ui_test_group = add_group(project, 'ReplyAssistantUITests')
 
 shared_refs = swift_files('Shared').map { |f| shared_group.new_file(File.basename(f)) }
 app_refs = swift_files('ReplyAssistant').map { |f| app_group.new_file(File.basename(f)) }
+app_group.new_file('Info.plist')
+config_ref = project.main_group.new_file('Config.xcconfig')
+project.build_configurations.each { |c| c.base_configuration_reference = config_ref }
 assets_ref = app_group.new_file('Assets.xcassets')
 ext_refs = swift_files('ShareExtension').map { |f| ext_group.new_file(File.basename(f)) }
 ext_group.new_file('Info.plist')
@@ -71,8 +74,8 @@ app.build_configurations.each do |c|
     'ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME' => 'AccentColor',
     'ENABLE_PREVIEWS' => 'YES',
     'LD_RUNPATH_SEARCH_PATHS' => ['$(inherited)', '@executable_path/Frameworks'],
+    'INFOPLIST_FILE' => 'ReplyAssistant/Info.plist',
   )
-  c.build_settings.delete('INFOPLIST_FILE')
 end
 
 # Share extension

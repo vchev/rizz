@@ -20,15 +20,24 @@ enum ReplyTone: String, Codable, CaseIterable, Identifiable {
 
 enum AppConfig {
     /// The hosted reply endpoint. nil = use sample replies.
-    static let replyAPIURL: URL? = nil
+    static let replyAPIURL: URL? = URL(string: "https://rizz-olive.vercel.app/api/reply")
+    /// Sent as X-Coax-Token so only the app can use the endpoint. Read from the
+    /// CoaxAppToken Info.plist value, set from ios/Secrets.xcconfig (git-ignored).
+    /// Anyone with the app can read it, so it's a speed bump; rotate before launch.
+    static var replyAPIToken: String? {
+        let value = Bundle.main.object(forInfoDictionaryKey: "CoaxAppToken") as? String
+        return (value?.isEmpty ?? true) ? nil : value
+    }
     /// How many replies to ask for (matches replies_per_request in config.json).
     static let repliesPerRequest = 3
 }
 
 enum ReplyServices {
     static func makeDefault() -> ReplyService {
-        if let url = AppConfig.replyAPIURL {
-            return HTTPReplyService(endpoint: url)
+        // UI tests use sample replies, so they don't depend on the server.
+        let uiTesting = ProcessInfo.processInfo.arguments.contains("-uiTesting")
+        if !uiTesting, let url = AppConfig.replyAPIURL {
+            return HTTPReplyService(endpoint: url, token: AppConfig.replyAPIToken)
         }
         return SampleReplyService()
     }
@@ -75,6 +84,7 @@ struct SampleReplyService: ReplyService {
 /// The API key never lives in the app; the backend holds it.
 struct HTTPReplyService: ReplyService {
     var endpoint: URL
+    var token: String? = nil
     var session: URLSession = .shared
     var isSample: Bool { false }
 
@@ -89,11 +99,17 @@ struct HTTPReplyService: ReplyService {
         var replies: [ReplySuggestion]
     }
 
+    struct ErrorBody: Decodable {
+        var error: String
+    }
+
     enum ServiceError: LocalizedError {
         case badStatus(Int)
+        case server(String)
         var errorDescription: String? {
             switch self {
             case .badStatus(let code): return "The reply server had a problem (code \(code)). Try again."
+            case .server(let message): return message
             }
         }
     }
@@ -103,11 +119,15 @@ struct HTTPReplyService: ReplyService {
         request.httpMethod = "POST"
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token { request.setValue(token, forHTTPHeaderField: "X-Coax-Token") }
         request.httpBody = try JSONEncoder().encode(
             RequestBody(platform: platform, n: AppConfig.repliesPerRequest, tone: tone, messages: messages))
 
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            if let body = try? JSONDecoder().decode(ErrorBody.self, from: data), !body.error.isEmpty {
+                throw ServiceError.server(body.error)
+            }
             throw ServiceError.badStatus(http.statusCode)
         }
         return try JSONDecoder().decode(ResponseBody.self, from: data).replies

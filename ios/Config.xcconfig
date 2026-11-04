@@ -1,0 +1,6 @@
+// Shared build settings. The reply server's app token lives in Secrets.xcconfig,
+// which is git-ignored and only on Vanessa's Mac:
+//   COAX_APP_TOKEN = <value of COAX_APP_TOKEN in Vercel>
+// Without it the app still builds, but the reply server refuses requests.
+COAX_APP_TOKEN =
+#include? "Secrets.xcconfig"
