@@ -132,6 +132,8 @@ final class KeyboardViewController: UIInputViewController {
     static let handBackAfterReply = false   // Vanessa chose to stay on Coax (Nov 4)
 
     private func insert(_ reply: ReplySuggestion) {
+        UIDevice.current.playInputClick()
+        KeyHaptics.tap()
         textDocumentProxy.insertText(reply.text)
         state.insertedID = reply.id
         state.shifted = false
