@@ -58,9 +58,17 @@ struct ReplyFlowView: View {
                         copiedID = reply.id
                     } label: {
                         HStack(alignment: .firstTextBaseline) {
-                            Text(reply.text)
-                                .foregroundStyle(.primary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 2) {
+                                if let label = reply.label, !label.isEmpty {
+                                    Text(label.uppercased())
+                                        .font(.caption2.weight(.bold))
+                                        .kerning(0.4)
+                                        .foregroundStyle(Color.coax)
+                                }
+                                Text(reply.text)
+                                    .foregroundStyle(.primary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             Image(systemName: copiedID == reply.id ? "checkmark" : "doc.on.doc")
                                 .foregroundStyle(copiedID == reply.id ? Color.coaxDone : Color.accentColor)
                         }
@@ -69,6 +77,10 @@ struct ReplyFlowView: View {
                 }
             }
 
+            if model.phase == .done {
+                MoodTagRow(model: model) { copiedID = nil }
+                    .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+            }
             if !model.messages.isEmpty && !model.isBusy {
                 Button {
                     Task { await model.generate() }
@@ -133,4 +145,36 @@ extension Color {
     static let coaxDone = Color(UIColor { $0.userInterfaceStyle == .dark
         ? UIColor(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255, alpha: 1)
         : UIColor(red: 0x34 / 255, green: 0xC7 / 255, blue: 0x59 / 255, alpha: 1) })
+}
+
+/// Funny · Flirty · Sweet · Chill · Bold · Shorter. Tapping one gets 3 new replies in that
+/// mood; tapping the lit one again goes back to mixed moods.
+struct MoodTagRow: View {
+    @ObservedObject var model: ReplyFlowModel
+    var background: Color = Color(.secondarySystemBackground)
+    var onTap: () -> Void = {}
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(ReplyTone.allCases) { tone in
+                    let on = model.tone == tone
+                    Button {
+                        onTap()
+                        Task { await model.generate(tone: on ? nil : tone) }
+                    } label: {
+                        Text(tone.label)
+                            .font(.footnote.weight(.medium))
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 32)
+                            .background(on ? Color.coax : background, in: Capsule())
+                            .foregroundStyle(on ? Color.white : Color.primary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(model.isBusy)
+                    .accessibilityAddTraits(on ? .isSelected : [])
+                }
+            }
+        }
+    }
 }

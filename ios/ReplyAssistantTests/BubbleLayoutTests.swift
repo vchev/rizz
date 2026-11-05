@@ -202,4 +202,10 @@ final class ReplySuggestionDecodingTests: XCTestCase {
         XCTAssertEqual(replies.map(\.text), ["dangerously confident tbh", "coffee?"])
         XCTAssertEqual(replies.map(\.label), ["playful", nil])
     }
+
+    func testMoodTagsMatchTheEngine() {
+        // engine/reply.py TONES; the tag row shows them in this order.
+        XCTAssertEqual(ReplyTone.allCases.map(\.rawValue), ["funny", "flirty", "sweet", "chill", "bold", "shorter"])
+        XCTAssertEqual(ReplyTone.allCases.map(\.label), ["Funny", "Flirty", "Sweet", "Chill", "Bold", "Shorter"])
+    }
 }

@@ -24,6 +24,8 @@ final class ReplyFlowModel: ObservableObject {
     @Published var readCount = 0
     /// How long the last read and reply request took, e.g. "Read 0.9s · replies 2.1s".
     @Published var timing: String?
+    /// The mood tag the current replies came from (nil = mixed moods).
+    @Published var tone: ReplyTone?
     private var readSeconds: Double?
     /// The message the user started a quoted reply to (Bumble's bar above the text box).
     var replyingTo: String?
@@ -208,6 +210,7 @@ final class ReplyFlowModel: ObservableObject {
             return
         }
         phase = .generating
+        self.tone = tone
         let started = Date()
         defer { readSeconds = nil }
         do {

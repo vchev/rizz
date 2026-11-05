@@ -133,21 +133,7 @@ struct MessagesView: View {
                     ForEach(model.replies) { reply in
                         replyCard(reply)
                     }
-                    HStack(spacing: 6) {
-                        ForEach(ReplyTone.allCases) { tone in
-                            Button {
-                                screen.insertedID = nil
-                                Task { await model.generate(tone: tone) }
-                            } label: {
-                                Text(tone.label)
-                                    .font(.footnote.weight(.medium))
-                                    .frame(maxWidth: .infinity, minHeight: 32)
-                                    .background(Color(.secondarySystemBackground), in: Capsule())
-                                    .foregroundStyle(Color.primary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
+                    MoodTagRow(model: model) { screen.insertedID = nil }
                     if model.replies.count > 1 {
                         Button("See all replies", action: actions.expand)
                             .font(.footnote)
