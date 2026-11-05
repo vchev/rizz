@@ -269,16 +269,7 @@ private struct TryItStep: View {
                         picked = reply
                     }
                 }
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(ReplyTone.allCases) { tone in
-                            TagChip(title: tone.label) {
-                                picked = nil
-                                Task { await model.generate(tone: tone) }
-                            }
-                        }
-                    }
-                }
+                MoodTagRow(model: model, background: Color(.systemBackground)) { picked = nil }
             default:
                 HStack(spacing: 10) {
                     ProgressView()

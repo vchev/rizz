@@ -100,13 +100,9 @@ struct RepliesView: View {
                         show("Copied. Paste it in your chat.")
                     }
                 }
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(ReplyTone.allCases) { tone in
-                            TagChip(title: tone.label) { regenerate(tone) }
-                        }
-                        TagChip(title: "New ones", systemImage: "arrow.clockwise") { regenerate(nil) }
-                    }
+                HStack(spacing: 6) {
+                    MoodTagRow(model: model) { copiedID = nil }
+                    TagChip(title: "New ones", systemImage: "arrow.clockwise") { regenerate(model.tone) }
                 }
                 .padding(.top, 4)
             }
