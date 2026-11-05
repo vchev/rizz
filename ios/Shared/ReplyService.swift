@@ -11,9 +11,14 @@ protocol ReplyService {
     /// `replyingTo`: the message the user has started a quoted reply to, if any.
     func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?,
                         replyingTo: String?) async throws -> [ReplySuggestion]
+    /// Wakes the server and opens the connection before replies are needed,
+    /// so the real request doesn't wait for a cold start or a new connection.
+    func warmUp()
 }
 
 extension ReplyService {
+    func warmUp() {}
+
     func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?) async throws -> [ReplySuggestion] {
         try await suggestReplies(for: messages, platform: platform, tone: tone, replyingTo: nil)
     }
@@ -137,6 +142,14 @@ struct HTTPReplyService: ReplyService {
             case .server(let message): return message
             }
         }
+    }
+
+    /// A tiny GET (the server answers with its prompt version). Sent when the
+    /// keyboard or Messages app opens, while the user is still taking the screenshot.
+    func warmUp() {
+        var request = URLRequest(url: endpoint)
+        request.timeoutInterval = 10
+        session.dataTask(with: request).resume()
     }
 
     func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?,

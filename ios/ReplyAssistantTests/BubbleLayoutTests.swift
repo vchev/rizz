@@ -88,6 +88,51 @@ final class BubbleLayoutTests: XCTestCase {
         XCTAssertEqual(messages.map(\.speaker), [.you, .you, .them])
     }
 
+    /// Vanessa's screenshot (Nov 5) taken with the Coax keyboard open: its
+    /// keys were read as messages and crowded out the chat.
+    func testCoaxKeyboardInTheScreenshotIsIgnored() {
+        let messages = BubbleLayout.messages(from: [
+            line("And also, daylight saving", x: 0.08, y: 0.25, w: 0.56, h: 0.025),
+            line("ain't it", x: 0.08, y: 0.28, w: 0.15, h: 0.025),
+            line("ugh it's the worst", x: 0.56, y: 0.35, w: 0.39, h: 0.025),
+            line("Delivered", x: 0.77, y: 0.39, w: 0.16),
+            line("iMessage", x: 0.22, y: 0.48, w: 0.21),
+            line("Last screenshot", x: 0.28, y: 0.56, w: 0.30),
+            line("Q W E R T Y U I O P", x: 0.04, y: 0.64, w: 0.92),
+            line("C", x: 0.30, y: 0.76, w: 0.03),
+            line("I M", x: 0.05, y: 0.71, w: 0.08),
+            line("123", x: 0.04, y: 0.85, w: 0.08),
+            line("space", x: 0.40, y: 0.85, w: 0.12),
+            line("return", x: 0.82, y: 0.85, w: 0.14),
+        ])
+        XCTAssertEqual(messages.map(\.text), ["And also, daylight saving ain't it", "ugh it's the worst"])
+        XCTAssertEqual(messages.map(\.speaker), [.them, .you])
+    }
+
+    /// Apple's keyboard with a typed draft (no placeholder) and suggestions.
+    func testAppleKeyboardAndSuggestionsAreIgnored() {
+        let messages = BubbleLayout.messages(from: [
+            line("are you free saturday?", x: 0.08, y: 0.48, w: 0.45),
+            line("I", x: 0.15, y: 0.615, w: 0.02),
+            line("Thanks", x: 0.45, y: 0.615, w: 0.12),
+            line("I'm", x: 0.80, y: 0.615, w: 0.06),
+            line("A S D F G H J K L", x: 0.06, y: 0.74, w: 0.88),
+            line("123", x: 0.04, y: 0.87, w: 0.08),
+            line("space", x: 0.40, y: 0.87, w: 0.12),
+            line("return", x: 0.82, y: 0.87, w: 0.14),
+        ])
+        XCTAssertEqual(messages.map(\.text), ["are you free saturday?"])
+    }
+
+    /// One message saying "space" low on the screen is still a message.
+    func testOneKeyWordAloneIsKept() {
+        let messages = BubbleLayout.messages(from: [
+            line("need some", x: 0.08, y: 0.70, w: 0.20),
+            line("space", x: 0.08, y: 0.80, w: 0.12),
+        ])
+        XCTAssertEqual(messages.count, 2)
+    }
+
     func testOrderFollowsPositionNotInputOrder() {
         let messages = BubbleLayout.messages(from: [
             line("second", x: 0.70, y: 0.60, w: 0.20),

@@ -38,7 +38,7 @@ enum BubbleLayout {
     static let minConfidence: Float = 0.4
 
     static func messages(from lines: [TextLine]) -> [ChatMessage] {
-        let kept = lines
+        let kept = aboveTextBox(lines)
             .filter { $0.box.minY >= topCutoff }
             .filter { !isChrome($0.text) }
             .filter { $0.confidence >= minConfidence }
@@ -62,6 +62,58 @@ enum BubbleLayout {
             pendingQuote = nil
             return text.isEmpty ? nil : ChatMessage(speaker: speaker, text: text, replyTo: replyTo)
         }
+    }
+
+    /// Drops the text box and any keyboard below it. A screenshot taken while
+    /// typing shows the keyboard (Apple's or Coax's), and its keys ("space",
+    /// "return", "123", rows of letters) are not messages.
+    static func aboveTextBox(_ lines: [TextLine]) -> [TextLine] {
+        guard let cut = textBoxTop(lines) else { return lines }
+        return lines.filter { $0.box.minY < cut }
+    }
+
+    /// Where the text box (and everything under it) starts, or nil when the
+    /// screenshot shows no keyboard and no text-box placeholder.
+    static func textBoxTop(_ lines: [TextLine]) -> CGFloat? {
+        var cuts: [CGFloat] = []
+        // The placeholder in an empty text box ("iMessage", "Aa", "Send a message").
+        let placeholders: Set<String> = [
+            "imessage", "text message", "rcs message", "message", "type a message", "send a message",
+            "write a message", "aa", "start typing", "type something", "say something nice",
+        ]
+        if let box = lines.last(where: {
+            $0.box.minY > 0.4 && placeholders.contains($0.text.trimmingCharacters(in: .whitespaces).lowercased())
+        }) {
+            cuts.append(box.box.minY - box.box.height * 0.5)
+        }
+        // Coax's own bar ("Last screenshot", "Last 2") sits just under the text box.
+        if let bar = lines.first(where: { $0.box.minY > 0.4 && isCoaxBar($0.text) }) {
+            cuts.append(bar.box.minY - textBoxHeight)
+        }
+        // A keyboard's bottom row: "123", "space", "return". Two of them are
+        // needed, so a message that just says "space" stays.
+        let bottomRow = lines.filter { $0.box.minY > 0.7 && isBottomRowKey($0.text) }
+        if bottomRow.count >= 2, let row = bottomRow.map(\.box.minY).min() {
+            cuts.append(row - keyboardHeight)
+        }
+        return cuts.min()
+    }
+
+    /// From the top of the text box down to the keyboard's bottom row: three
+    /// rows of letters, the suggestion bar and the text box.
+    static let keyboardHeight: CGFloat = 0.30
+    /// The text box above the keyboard, with its margins.
+    static let textBoxHeight: CGFloat = 0.07
+
+    static func isBottomRowKey(_ raw: String) -> Bool {
+        let keys: Set<String> = ["space", "return", "123", "abc", "#+=", "go", "search", "done", "next",
+                                 "join", "emoji"]
+        return keys.contains(raw.trimmingCharacters(in: .whitespaces).lowercased())
+    }
+
+    static func isCoaxBar(_ raw: String) -> Bool {
+        let text = raw.trimmingCharacters(in: .whitespaces)
+        return ["Last screenshot", "Last 2", "Last 3"].contains(text)
     }
 
     /// Text much smaller than the chat's own is inside a picture someone sent
@@ -102,7 +154,7 @@ enum BubbleLayout {
     /// started a quoted reply (Bumble: "Chai" / "Btw! I'm sure you get this…").
     /// It sits off the bubbles, below the last message. Returns the quoted text.
     static func replyingTo(in lines: [TextLine]) -> String? {
-        let sorted = lines.filter { $0.confidence >= minConfidence }.sorted { $0.box.minY < $1.box.minY }
+        let sorted = aboveTextBox(lines).filter { $0.confidence >= minConfidence }.sorted { $0.box.minY < $1.box.minY }
         let lastBubbleBottom = sorted.filter { $0.onBubble == true }.map(\.box.maxY).max() ?? 0
         for (name, quote) in zip(sorted, sorted.dropFirst()) {
             guard name.onBubble != true, quote.onBubble != true,

@@ -22,6 +22,9 @@ final class ReplyFlowModel: ObservableObject {
     /// How many messages the latest screenshots showed. `messages` can hold
     /// more: the earlier part of the same chat, saved on the phone.
     @Published var readCount = 0
+    /// How long the last read and reply request took, e.g. "Read 0.9s · replies 2.1s".
+    @Published var timing: String?
+    private var readSeconds: Double?
     /// The message the user started a quoted reply to (Bumble's bar above the text box).
     var replyingTo: String?
 
@@ -95,13 +98,12 @@ final class ReplyFlowModel: ObservableObject {
         replies = []
         messages = []
         do {
+            let started = Date()
             var all: [ChatMessage] = []
-            replyingTo = nil
-            for image in images {
-                let chat = try await reader.readChat(image)
-                all = Transcript.append(chat.messages, to: all)
-                replyingTo = chat.replyingTo ?? replyingTo
-            }
+            let chats = try await readAll(images)
+            for chat in chats { all = Transcript.append(chat.messages, to: all) }
+            replyingTo = chats.last(where: { $0.replyingTo != nil })?.replyingTo
+            readSeconds = Date().timeIntervalSince(started)
             use(all)
             guard !all.isEmpty else {
                 phase = .failed("Couldn't find any messages in that screenshot. Try one that shows the chat bubbles.")
@@ -120,16 +122,14 @@ final class ReplyFlowModel: ObservableObject {
         messages = []
         previews = []
         do {
+            let started = Date()
             let shots = try await RecentScreenshots.latestWithDates(min(max(count, 1), 3))
-            var parts: [[ChatMessage]] = []
-            var dates: [Date] = []
-            replyingTo = nil
-            for shot in shots {   // oldest first, so the newest bar wins
-                let chat = try await reader.readChat(shot.image)
-                parts.append(chat.messages)
-                dates.append(shot.taken)
-                replyingTo = chat.replyingTo ?? replyingTo
-            }
+            // Read all screenshots at once rather than one after another.
+            let chats = try await readAll(shots.map(\.image))
+            let parts = chats.map(\.messages)
+            let dates = shots.map(\.taken)
+            replyingTo = chats.last(where: { $0.replyingTo != nil })?.replyingTo   // the newest bar wins
+            readSeconds = Date().timeIntervalSince(started)
             let kept = Transcript.sameChat(parts, taken: dates)
             previews = kept.map { shots[$0].image }
             let all = Transcript.joinBestOrder(kept.map { parts[$0] })
@@ -141,6 +141,19 @@ final class ReplyFlowModel: ObservableObject {
             await generate()
         } catch {
             phase = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Reads screenshots side by side; results keep the screenshots' order.
+    private func readAll(_ images: [UIImage]) async throws -> [ScreenshotReader.Chat] {
+        let reader = self.reader
+        return try await withThrowingTaskGroup(of: (Int, ScreenshotReader.Chat).self) { group in
+            for (i, image) in images.enumerated() {
+                group.addTask { (i, try await reader.readChat(image)) }
+            }
+            var out = [ScreenshotReader.Chat?](repeating: nil, count: images.count)
+            for try await (i, chat) in group { out[i] = chat }
+            return out.compactMap { $0 }
         }
     }
 
@@ -182,15 +195,22 @@ final class ReplyFlowModel: ObservableObject {
             return
         }
         phase = .generating
+        let started = Date()
+        defer { readSeconds = nil }
         do {
             replies = try await service.suggestReplies(for: Array(messages.suffix(Self.maxMessagesSent)), platform: "imessage", tone: tone,
                                                        replyingTo: replyingTo)
             editedSinceReplies = false
+            let replySeconds = Date().timeIntervalSince(started)
+            timing = [readSeconds.map { "Read \(Self.seconds($0))" }, "replies \(Self.seconds(replySeconds))"]
+                .compactMap { $0 }.joined(separator: " · ")
             phase = .done
         } catch {
             phase = .failed(error.localizedDescription)
         }
     }
+
+    private static func seconds(_ t: Double) -> String { String(format: "%.1fs", t) }
 
     func flipSpeaker(of message: ChatMessage) {
         guard let i = messages.firstIndex(where: { $0.id == message.id }) else { return }
@@ -220,6 +240,7 @@ final class ReplyFlowModel: ObservableObject {
 
     func reset() {
         previews = []
+        timing = nil
         phase = .waiting
         messages = []
         replies = []

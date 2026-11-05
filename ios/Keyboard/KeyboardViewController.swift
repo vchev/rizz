@@ -97,6 +97,7 @@ final class KeyboardViewController: UIInputViewController {
             state.watching = false
             return
         }
+        model.service.warmUp()   // wake the reply server while the screenshot is being taken
         watcher.start()
         state.watching = RecentScreenshots.newest() != nil
     }
@@ -131,6 +132,8 @@ final class KeyboardViewController: UIInputViewController {
     static let handBackAfterReply = false   // Vanessa chose to stay on Coax (Nov 4)
 
     private func insert(_ reply: ReplySuggestion) {
+        UIDevice.current.playInputClick()
+        KeyHaptics.tap()
         textDocumentProxy.insertText(reply.text)
         state.insertedID = reply.id
         state.shifted = false

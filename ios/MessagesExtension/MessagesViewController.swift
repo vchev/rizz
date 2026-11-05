@@ -52,6 +52,7 @@ final class MessagesViewController: MSMessagesAppViewController {
         // A screenshot taken in the last minute is read straight away, so
         // "screenshot, then open Coax" works as well as the other order.
         watcher.start(lookBack: model.phase == .done ? 0 : 60)
+        model.service.warmUp()
         screen.hasPhotos = RecentScreenshots.newest() != nil || RecentScreenshots.hasAccess
     }
 
