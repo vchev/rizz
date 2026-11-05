@@ -1,12 +1,12 @@
 """The web endpoint the iPhone app calls. Keeps the API key on the server.
 
-    POST /api/reply   {"platform": "imessage", "n": 3, "tone": "funnier", "under_18": false,
+    POST /api/reply   {"platform": "imessage", "n": 3, "tone": "funny", "under_18": false,
                        "messages": [{"speaker": "them", "text": "...", "reply_to": "..."}],
                        "replying_to": "...",
                        "voice": {"length": 0.2, "caps": 0.1, "humour": 0.8, "emoji": 0.1,
                                  "forward": 0.5, "examples": ["..."]}}
                       (reply_to, replying_to and voice are optional)
-    ->  200 {"replies": [{"text": "...", "label": "playful"}], "prompt_version": 6}   (label may be missing)
+    ->  200 {"replies": [{"text": "...", "label": "playful"}], "prompt_version": 9}   (label may be missing)
 
     GET  /api/reply   -> {"ok": true}   (health check, no model call)
 

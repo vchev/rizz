@@ -82,11 +82,11 @@ class Messages(unittest.TestCase):
 
 class Prompts(unittest.TestCase):
     def test_user_prompt(self):
-        p = prompts.user_prompt(reply.clean_messages(CHAT), "hinge", 3, "funnier")
+        p = prompts.user_prompt(reply.clean_messages(CHAT), "hinge", 3, "funny")
         self.assertIn("App: Hinge", p)
         self.assertIn("MATCH: do you hike a lot?", p)
         self.assertIn("ME: mission peak!", p)
-        self.assertIn("funnier", p)
+        self.assertIn("every reply is funny", p)
         self.assertIn("3 different replies", p)
 
     def test_last_message_mine(self):
@@ -146,6 +146,22 @@ class Suggest(unittest.TestCase):
         with self.assertRaises(reply.BadRequest):
             reply.suggest_replies(CHAT, n=50, call=fake("{}"), config=CONFIG)
 
+    def test_moods_and_old_tone_names(self):
+        seen = []
+        def spy(system, user, config):
+            seen.append(user)
+            return reply.stand_in_model(system, user, config)
+        for tone in reply.TONES:
+            reply.suggest_replies(CHAT, tone=tone, call=spy, config=CONFIG)
+        reply.suggest_replies(CHAT, tone="funnier", call=spy, config=CONFIG)
+        reply.suggest_replies(CHAT, tone="flirtier", call=spy, config=CONFIG)
+        self.assertIn("every reply is sweet", seen[2])
+        self.assertIn("every reply is funny", seen[-2])
+        self.assertIn("every reply is flirty", seen[-1])
+
+    def test_default_asks_for_different_moods(self):
+        self.assertIn("give each reply a different mood", prompts.system_prompt())
+
     def test_model_call_sends_zdr(self):
         with mock.patch.object(reply.settings, "provider", return_value=("openrouter", "k")), \
                 mock.patch.object(openrouter, "chat", return_value='{"replies": []}') as chat:
@@ -201,7 +217,7 @@ class Api(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(len(out["replies"]), 3)
         self.assertTrue(all(set(r) <= {"text", "label"} and "text" in r for r in out["replies"]))
-        self.assertEqual([r.get("label") for r in out["replies"]], ["curious", "playful", "forward"])
+        self.assertEqual([r.get("label") for r in out["replies"]], ["playful", "sweet", "flirty"])
 
     def test_bad_json_and_bad_messages(self):
         self.assertEqual(api.handle(b"nope")[0], 400)

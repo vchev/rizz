@@ -204,20 +204,8 @@ private struct RepliesPanel: View {
                     }
                     .padding(.horizontal, 2)
                 }
-                HStack(spacing: 6) {
-                    ForEach(ReplyTone.allCases) { tone in
-                        Button {
-                            state.insertedID = nil
-                            Task { await model.generate(tone: tone) }
-                        } label: {
-                            Text(tone.label)
-                                .font(.footnote.weight(.medium))
-                                .frame(maxWidth: .infinity, minHeight: 32)
-                                .background(Color(.systemBackground), in: Capsule())
-                                .foregroundStyle(Color.primary)
-                        }
-                        .buttonStyle(.plain)
-                    }
+                MoodTagRow(model: model, background: Color(.systemBackground)) {
+                    state.insertedID = nil
                 }
             }
         }
