@@ -7,7 +7,7 @@ final class KeyboardState: ObservableObject {
     @Published var hasFullAccess = false
     @Published var showsGlobe = true
     @Published var insertedID: UUID?
-    @Published var panel: Panel = .keys
+    @Published var panel: Panel = .replies   // direction A: open on replies
     @Published var shifted = true
     @Published var showingSymbols = false
     /// True while the keyboard is watching for a new screenshot to read by itself.
@@ -26,9 +26,9 @@ final class KeyboardState: ObservableObject {
     enum Panel { case keys, replies, review, fullAccessHelp }
 }
 
-/// The Coax keyboard: a plain typing keyboard plus a reply bar. Copy their
-/// message (or a screenshot), tap the reply bar, and tap a reply to type it
-/// into the chat. Nothing goes over the network unless that bar is tapped,
+/// The Coax keyboard: opens on your replies. Take a screenshot (or copy
+/// their message and tap the clipboard), then tap 1, 2 or 3 to type a reply
+/// into the chat, and it hands back to your usual keyboard. Nothing goes over the network unless that bar is tapped,
 /// and keystrokes are never stored or sent.
 final class KeyboardViewController: UIInputViewController {
     static let height: CGFloat = 290
@@ -78,6 +78,8 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refreshState()
+        // Open on replies every time (Coax's letter keys are behind ABC).
+        state.panel = hasFullAccess ? .replies : .fullAccessHelp
         showShortcutReplies()
         startWatching()
         updateAutoCapital()
@@ -129,7 +131,8 @@ final class KeyboardViewController: UIInputViewController {
 
     /// After a reply goes in, hand back to the user's usual keyboard, which
     /// types and autocorrects better than ours. Coax is for getting replies.
-    static let handBackAfterReply = false   // Vanessa chose to stay on Coax (Nov 4)
+    /// Direction A default (Nov 5 review): hand back so you can edit and send.
+    static let handBackAfterReply = true
 
     private func insert(_ reply: ReplySuggestion) {
         UIDevice.current.playInputClick()
