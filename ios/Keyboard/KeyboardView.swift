@@ -204,20 +204,8 @@ private struct RepliesPanel: View {
                     }
                     .padding(.horizontal, 2)
                 }
-                HStack(spacing: 6) {
-                    ForEach(ReplyTone.allCases) { tone in
-                        Button {
-                            state.insertedID = nil
-                            Task { await model.generate(tone: tone) }
-                        } label: {
-                            Text(tone.label)
-                                .font(.footnote.weight(.medium))
-                                .frame(maxWidth: .infinity, minHeight: 32)
-                                .background(Color(.systemBackground), in: Capsule())
-                                .foregroundStyle(Color.primary)
-                        }
-                        .buttonStyle(.plain)
-                    }
+                MoodTagRow(model: model, background: Color(.systemBackground)) {
+                    state.insertedID = nil
                 }
             }
         }
@@ -385,22 +373,6 @@ private struct LetterKeys: View {
     }
 }
 
-/// A light tap on every key, like Apple's keyboard with Keyboard Haptics on.
-/// iOS only lets a keyboard vibrate when it has Full Access; without it this does nothing.
-@MainActor
-enum KeyHaptics {
-    private static let generator: UIImpactFeedbackGenerator = {
-        let g = UIImpactFeedbackGenerator(style: .light)
-        g.prepare()
-        return g
-    }()
-
-    static func tap() {
-        generator.impactOccurred()
-        generator.prepare()   // keeps the next tap instant
-    }
-}
-
 /// Fires on touch-down, like Apple's keys, instead of on lift. Optionally
 /// repeats while held (the delete key).
 private struct TouchDownKey<Label: View>: View {
@@ -419,7 +391,6 @@ private struct TouchDownKey<Label: View>: View {
                         guard !pressed else { return }
                         pressed = true
                         UIDevice.current.playInputClick()
-                        KeyHaptics.tap()
                         action()
                         if repeats { startRepeating() }
                     }

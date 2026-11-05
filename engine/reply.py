@@ -13,7 +13,9 @@ import re
 
 from engine import anthropic_api, openrouter, prompts, settings
 
-TONES = ("funnier", "flirtier", "shorter")
+TONES = ("funny", "flirty", "sweet", "chill", "bold", "shorter")
+# Older app builds send these; they mean the same mood.
+TONE_ALIASES = {"funnier": "funny", "flirtier": "flirty"}
 MAX_MESSAGES = 80          # only the most recent messages are sent to the model
 MAX_CHARS = 12000          # ... and at most this much text, to keep cost and speed in check
 MAX_REPLY_CHARS = 400
@@ -151,6 +153,7 @@ def suggest_reply_items(messages, platform="imessage", n=None, tone=None, under_
     n = n or config.get("replies_per_request", 3)
     if not isinstance(n, int) or not 1 <= n <= 5:
         raise BadRequest("n must be 1 to 5")
+    tone = TONE_ALIASES.get(tone, tone)
     if tone is not None and tone not in TONES:
         raise BadRequest("tone must be one of: " + ", ".join(TONES))
     msgs = clean_messages(messages)
@@ -175,8 +178,8 @@ def stand_in_model(system, user, config):
     last = [l for l in user.splitlines() if l.startswith("MATCH: ")]
     topic = last[-1][len("MATCH: "):][:40] if last else "this"
     return json.dumps({"replies": [
-        {"text": "[stand-in] wait, %s?" % topic, "label": "curious"},
-        {"text": "[stand-in] ok I need the full story on that", "label": "playful"},
-        {"text": "[stand-in] haha what are you up to this weekend", "label": "forward"},
-        {"text": "[stand-in] fair. coffee sometime?", "label": "direct"},
+        {"text": "[stand-in] wait, %s?" % topic, "label": "playful"},
+        {"text": "[stand-in] ok I need the full story on that", "label": "sweet"},
+        {"text": "[stand-in] haha what are you up to this weekend", "label": "flirty"},
+        {"text": "[stand-in] fair. coffee sometime?", "label": "bold"},
     ]})

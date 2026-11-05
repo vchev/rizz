@@ -1,6 +1,6 @@
 """Prompts for the reply engine. Bump PROMPT_VERSION whenever a prompt changes."""
 
-PROMPT_VERSION = 8
+PROMPT_VERSION = 9
 
 SYSTEM_PROMPT = """You write the user's next text message in a dating conversation.
 
@@ -56,18 +56,23 @@ Never:
 - Put the reply in quotes, explain it, sign it, or put a label inside the text.
 
 Return only JSON: {"replies": [{"text": "...", "label": "..."}, ...]}
-"label" is one or two plain lowercase words naming the reply's angle (like "playful", "direct",
-"curious", "sweet", "bold"). It is shown as a small tag next to the reply and is never sent.
-Give each reply a different label."""
+"label" is the reply's mood, one plain lowercase word from: playful, flirty, sweet, chill, bold,
+funny. It is shown as a small tag next to the reply and is never sent. Unless told otherwise,
+give each reply a different mood, and make each reply really sound like its mood."""
 
 UNDER_18_RULE = """
 The user is under 18. Keep every reply friendly and age-appropriate: no flirting about bodies,
 no sexual or suggestive content, no alcohol or drugs, and no plans to meet somewhere private."""
 
 TONE_RULES = {
-    "funnier": "This time make every reply noticeably funnier: playful, teasing, a bit witty.",
-    "flirtier": "This time make every reply a little flirtier (charming and confident, never explicit).",
-    "shorter": "This time make every reply short: a few words, at most one short sentence.",
+    "funny": "This time every reply is funny: playful, teasing, a bit witty. Label each \"funny\".",
+    "flirty": "This time every reply is flirty: charming and confident, never explicit. Label each \"flirty\".",
+    "sweet": "This time every reply is sweet: warm, kind, a little affectionate. Label each \"sweet\".",
+    "chill": "This time every reply is chill: relaxed, easygoing, low-key, no pressure. Label each \"chill\".",
+    "bold": "This time every reply is bold: direct and confident, says what the user wants (still kind, "
+            "never pushy). Label each \"bold\".",
+    "shorter": "This time make every reply short: a few words, at most one short sentence. "
+               "Keep the different moods.",
 }
 
 # The user's voice profile (optional, sent by the app). Each slider is 0..1; the middle third

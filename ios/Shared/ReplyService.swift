@@ -24,9 +24,10 @@ extension ReplyService {
     }
 }
 
-/// Optional nudge for a new set of replies.
+/// A mood tag: tapping one asks for 3 new replies in that mood. With no tag, the 3 replies
+/// each come in a different mood, and each reply's label names its mood.
 enum ReplyTone: String, Codable, CaseIterable, Identifiable {
-    case funnier, flirtier, shorter
+    case funny, flirty, sweet, chill, bold, shorter
     var id: String { rawValue }
     var label: String { rawValue.capitalized }
 }
@@ -67,24 +68,18 @@ struct SampleReplyService: ReplyService {
     func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?,
                         replyingTo: String?) async throws -> [ReplySuggestion] {
         try await Task.sleep(nanoseconds: 700_000_000)
-        let samples: [String]
+        let moods: [String]
         switch tone {
-        case .funnier:
-            samples = ["Sample (funnier): ok that is unhinged and I respect it",
-                       "Sample (funnier): bold of you to say that before our first date",
-                       "Sample (funnier): I'm telling my mom about this"]
-        case .flirtier:
-            samples = ["Sample (flirtier): you're kind of making it hard to play it cool",
-                       "Sample (flirtier): tell me more over a drink?",
-                       "Sample (flirtier): ok you're cute when you say things like that"]
-        case .shorter:
-            samples = ["Sample (shorter): haha yes", "Sample (shorter): tell me more", "Sample (shorter): coffee?"]
-        case nil:
-            samples = ["Sample reply: ok wait, tell me more",
-                       "Sample reply: haha fair. what are you up to this week?",
-                       "Sample reply: honestly same. coffee sometime?"]
+        case nil, .shorter?: moods = ["playful", "sweet", "bold"]
+        case let mood?: moods = Array(repeating: mood.rawValue, count: 3)
         }
-        return samples.prefix(AppConfig.repliesPerRequest).map { ReplySuggestion(text: $0) }
+        let samples = tone == .shorter
+            ? ["Sample: haha yes", "Sample: tell me more", "Sample: coffee?"]
+            : ["Sample reply: ok wait, tell me more",
+               "Sample reply: haha fair. what are you up to this week?",
+               "Sample reply: honestly same. coffee sometime?"]
+        return zip(samples, moods).prefix(AppConfig.repliesPerRequest)
+            .map { ReplySuggestion(text: $0.0, label: $0.1) }
     }
 }
 
@@ -93,7 +88,7 @@ struct SampleReplyService: ReplyService {
 /// Calls the hosted reply engine.
 ///
 /// Request (POST, JSON):
-///   {"platform": "imessage", "n": 3, "tone": "funnier",   // tone is optional
+///   {"platform": "imessage", "n": 3, "tone": "funny",     // optional mood tag
 ///    "under_18": true,                                   // teen mode only
 ///    "voice": {"length": 0.2, ..., "examples": ["..."]}, // only when the voice profile is on
 ///    "messages": [{"speaker": "them", "text": "..."}, {"speaker": "you", "text": "..."}]}
