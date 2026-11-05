@@ -3,8 +3,8 @@ import UIKit
 
 /// First-run setup, three screens (design review, Nov 5):
 /// 1. Try it: a real reply to an example chat, before any setup.
-/// 2. Add the Coax keyboard (with the Full Access note).
-/// 3. Photos, with consent to send chat text to the AI.
+/// 2. Photos, asked inside the app, with consent to send chat text to the AI.
+/// 3. Add the Coax keyboard: one trip to Coax's page in Settings.
 /// Then Home, which shows a one-time "Here's the move" card.
 ///
 /// Apple's age range (once switched on) still runs quietly in the background:
@@ -47,7 +47,7 @@ struct OnboardingView: View {
     var body: some View {
         Group {
             switch step {
-            case .tryIt: TryItStep { go(.keyboard) }
+            case .tryIt: TryItStep { go(.photos) }
             case .keyboard: keyboard
             case .photos: photos
             case .checkingAge: checkingAge
@@ -94,11 +94,18 @@ struct OnboardingView: View {
 
     // MARK: Setup screens
 
+    /// After Photos: skip the keyboard step when it's already on (setup replayed).
+    private func afterPhotos() {
+        if KeyboardCheck.isAdded && RecentScreenshots.hasFullAccess { finish() } else { go(.keyboard) }
+    }
+
+    /// One trip to Settings: Coax's own page holds Keyboards (and Photos, if
+    /// only some photos were allowed).
     private var keyboard: some View {
-        SetupPage(step: 1, onBack: { go(.tryIt) }, skipTitle: "Later", onSkip: { go(.photos) }) {
+        SetupPage(step: 2, onBack: { go(.photos) }, skipTitle: "Later", onSkip: { finish() }) {
             ScreenTitle(title: "Add the Coax keyboard",
-                        subtitle: "One time, about 30 seconds. Coax moves on by itself when you come back.")
-            SettingsPicture()
+                        subtitle: "One trip to Settings, about 30 seconds. Coax moves on by itself when you come back.")
+            SettingsPicture(fixPhotos: RecentScreenshots.isLimited)
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "checkmark.shield.fill").foregroundStyle(Color.coax)
                 Text("iPhone warns about Full Access for every keyboard. **Coax never saves what you type.** It only uses the internet to fetch replies.")
@@ -116,14 +123,15 @@ struct OnboardingView: View {
             .buttonStyle(PrimaryButton())
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active, KeyboardCheck.isAdded { go(.photos) }
+            if phase == .active, KeyboardCheck.isAdded { finish() }
         }
     }
 
+    /// Asked inside the app first: one tap on iPhone's own prompt, no searching.
     private var photos: some View {
-        SetupPage(step: 2, onBack: { go(.keyboard) }, skipTitle: "Not now", onSkip: { finish() }) {
+        SetupPage(step: 1, onBack: { go(.tryIt) }, skipTitle: "Not now", onSkip: { afterPhotos() }) {
             ScreenTitle(title: "Screenshot the chat. Coax does the rest.",
-                        subtitle: "Coax needs Photos to see your newest screenshot.")
+                        subtitle: "Coax needs Photos to see your newest screenshot. On the next prompt, tap Allow Full Access.")
             ScreenshotPicture()
             VStack(alignment: .leading, spacing: 10) {
                 Promise(icon: "iphone", text: "Screenshots are read on your iPhone")
@@ -135,7 +143,7 @@ struct OnboardingView: View {
             Button("Agree and allow Photos") {
                 Task {
                     if !uiTesting { _ = await RecentScreenshots.requestAccess() }
-                    finish()
+                    afterPhotos()
                 }
             }
             .buttonStyle(PrimaryButton())
@@ -287,36 +295,59 @@ private struct TryItStep: View {
 
 // MARK: - Pictures
 
-/// The two switches people will see in Settings, numbered.
+/// Coax's page in Settings, where Open Settings lands, with the taps numbered.
 private struct SettingsPicture: View {
+    /// Only some photos were allowed: fix it on the same page.
+    var fixPhotos: Bool
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Settings › Coax › Keyboards")
+            Text("Settings › Coax")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             VStack(spacing: 0) {
-                row(1, "Coax")
+                if fixPhotos {
+                    row(nil, "Photos", detail: "Full Access")
+                    Divider().padding(.leading, 12)
+                }
+                row(1, "Keyboards", detail: "›")
+            }
+            .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            Text("Then")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            VStack(spacing: 0) {
+                row(2, "Coax", toggle: true)
                 Divider().padding(.leading, 12)
-                row(2, "Allow Full Access")
+                row(3, "Allow Full Access", toggle: true)
             }
             .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .padding(12)
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("In Settings, turn on Coax, then turn on Allow Full Access.")
+        .accessibilityLabel((fixPhotos ? "In Settings, set Photos to Full Access. " : "In Settings, ")
+                            + "tap Keyboards, turn on Coax, then turn on Allow Full Access.")
     }
 
-    private func row(_ n: Int, _ title: String) -> some View {
+    private func row(_ n: Int?, _ title: String, detail: String? = nil, toggle: Bool = false) -> some View {
         HStack {
-            Text("\(n)")
-                .font(.caption.bold())
-                .foregroundStyle(.white)
-                .frame(width: 20, height: 20)
-                .background(Color.coax, in: Circle())
+            if let n {
+                Text("\(n)")
+                    .font(.caption.bold())
+                    .foregroundStyle(.white)
+                    .frame(width: 20, height: 20)
+                    .background(Color.coax, in: Circle())
+            } else {
+                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
+            }
             Text(title)
             Spacer()
-            Toggle("", isOn: .constant(true)).labelsHidden().disabled(true).tint(.green)
+            if toggle {
+                Toggle("", isOn: .constant(true)).labelsHidden().allowsHitTesting(false).tint(.green)
+            } else if let detail {
+                Text(detail).foregroundStyle(.secondary)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

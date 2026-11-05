@@ -13,7 +13,7 @@ struct ContentView: View {
     @State private var showReplies = false
     @State private var recent: [SavedChat] = []
     @State private var keyboardOn = KeyboardCheck.isAdded
-    @State private var photosOn = RecentScreenshots.hasAccess
+    @State private var photosOn = RecentScreenshots.hasFullAccess
     @AppStorage("coax.howToDismissed") private var howToDismissed = false
     @Environment(\.scenePhase) private var scenePhase
     /// Test builds only: runs first-time setup again (see ReplyAssistantApp).
@@ -176,7 +176,7 @@ struct ContentView: View {
 
     private func refresh() {
         keyboardOn = KeyboardCheck.isAdded
-        photosOn = RecentScreenshots.hasAccess
+        photosOn = RecentScreenshots.hasFullAccess
         recent = Array((ChatStore.forUse?.chats ?? [])
             .sorted { $0.updated > $1.updated }
             .prefix(6))

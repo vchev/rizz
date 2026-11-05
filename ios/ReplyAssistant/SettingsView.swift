@@ -8,7 +8,7 @@ struct SettingsView: View {
     var onReplaySetup: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var keyboardOn = KeyboardCheck.isAdded
-    @State private var photosOn = RecentScreenshots.hasAccess
+    @State private var photosOn = RecentScreenshots.hasFullAccess
     @State private var showVoice = false
     @State private var confirmClear = false
     @State private var cleared = false

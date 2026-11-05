@@ -27,6 +27,16 @@ enum RecentScreenshots {
         return status == .authorized || status == .limited
     }
 
+    /// Full access: "Limit Access" hides new screenshots from Coax.
+    static var hasFullAccess: Bool {
+        PHPhotoLibrary.authorizationStatus(for: .readWrite) == .authorized
+    }
+
+    /// Only some photos were allowed, so new screenshots can't be seen.
+    static var isLimited: Bool {
+        PHPhotoLibrary.authorizationStatus(for: .readWrite) == .limited
+    }
+
     /// Only the app can show the permission prompt; the keyboard uses what the app was granted.
     static func requestAccess() async -> Bool {
         let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
