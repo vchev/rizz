@@ -33,3 +33,10 @@ zero-data-retention providers only (`openrouter_provider` in config.json). Throu
 Anthropic does not train on the data but keeps it up to 30 days unless the account has zero data
 retention. Long threads are cut to the latest 80
 messages / 12,000 characters before they're sent.
+
+## Free web reply tool (`api/try_tool.py`)
+
+Public endpoint behind the site's /reply/ page. No token, so it's kept small: one reply from at
+most 3 short messages, always the stricter teen-safe prompt, 3 replies per visitor per day and a
+daily cap per server instance (`COAX_TRY_DAILY_CAP`, default 300), all held in memory only.
+Nothing pasted is stored or logged.

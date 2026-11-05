@@ -4,6 +4,10 @@
     "api/reply.py": {
       "includeFiles": "{engine/**,config.json}",
       "maxDuration": 30
+    },
+    "api/try_tool.py": {
+      "includeFiles": "{engine/**,config.json}",
+      "maxDuration": 30
     }
   }
 }
