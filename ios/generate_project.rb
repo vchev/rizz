@@ -144,7 +144,7 @@ end
 
 # Unit tests for the pure layout logic (no app host needed)
 tests = project.new_target(:unit_test_bundle, 'ReplyAssistantTests', :ios, IOS_VERSION)
-layout_logic = shared_refs.select { |r| %w[BubbleLayout.swift Conversation.swift ScreenshotReader.swift ChatStore.swift AgeSettings.swift].include?(r.path) }
+layout_logic = shared_refs.select { |r| %w[BubbleLayout.swift Conversation.swift ScreenshotReader.swift ChatStore.swift AgeSettings.swift VoiceProfile.swift ReplyService.swift].include?(r.path) }
 tests.add_file_references(layout_logic + test_refs)
 tests.build_configurations.each do |c|
   c.build_settings.merge!(common)

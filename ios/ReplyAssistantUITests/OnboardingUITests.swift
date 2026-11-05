@@ -1,35 +1,29 @@
 import XCTest
 
-/// Walks through first-run setup in the simulator. Apple's age sheet can't be
-/// tapped in tests, so these use the birth-year question instead.
+/// Walks through first-run setup in the simulator. There's no age screen;
+/// "-appleAge" stands in for Apple's age range.
 final class OnboardingUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
     }
 
-    private func launch() -> XCUIApplication {
+    private func launch(appleAge: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting", "-onboarding"]
+        app.launchArguments = ["-uiTesting", "-onboarding"] + (appleAge.map { ["-appleAge", $0] } ?? [])
         app.launch()
         return app
     }
 
-    private func pickBirthYear(_ app: XCUIApplication, yearsAgo: Int) {
+    private func getStarted(_ app: XCUIApplication) {
         let start = app.buttons["Get started"]
         XCTAssertTrue(start.waitForExistence(timeout: 5))
         save(app, "onboarding-1-welcome")
         start.tap()
-        let wheel = app.pickerWheels.firstMatch
-        XCTAssertTrue(wheel.waitForExistence(timeout: 5))
-        let year = Calendar.current.component(.year, from: Date()) - yearsAgo
-        wheel.adjust(toPickerWheelValue: String(year))
-        save(app, "onboarding-2-birth-year")
-        app.buttons["Continue"].tap()
     }
 
     func testAdultSeesARealReplyThenSetsUpKeyboard() throws {
         let app = launch()
-        pickBirthYear(app, yearsAgo: 30)
+        getStarted(app)   // no age screen: straight to replies
 
         let reply = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] %@", "Sample reply")).firstMatch
         XCTAssertTrue(reply.waitForExistence(timeout: 30), "Replies should appear in the first minute")
@@ -54,18 +48,30 @@ final class OnboardingUITests: XCTestCase {
     }
 
     func testUnder16IsTurnedAway() throws {
-        let app = launch()
-        pickBirthYear(app, yearsAgo: 14)
+        let app = launch(appleAge: "under16")
+        getStarted(app)
         XCTAssertTrue(app.staticTexts["Coax is for people 16 and older"].waitForExistence(timeout: 5))
         save(app, "onboarding-under-16")
+
+        // Test builds can start over from here.
+        app.buttons["Start over (test builds only)"].tap()
+        XCTAssertTrue(app.buttons["Get started"].waitForExistence(timeout: 5))
+    }
+
+    func testSetupCanBeReplayedFromTheMainScreen() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uiTesting"]   // already set up: main screen
+        app.launch()
+        let replay = app.buttons["Show setup again"]
+        XCTAssertTrue(replay.waitForExistence(timeout: 5))
+        replay.tap()
+        XCTAssertTrue(app.buttons["Get started"].waitForExistence(timeout: 5))
+        save(app, "onboarding-replayed")
     }
 
     func testSixteenOrSeventeenAsksForParentOK() throws {
-        let app = launch()
-        pickBirthYear(app, yearsAgo: 16)   // 15 or 16: asks about the birthday, "Yes" = 16
-        let yes = app.buttons["Yes"]
-        XCTAssertTrue(yes.waitForExistence(timeout: 5))
-        yes.tap()
+        let app = launch(appleAge: "teen")
+        getStarted(app)
         let ok = app.buttons["My parent or guardian said OK"]
         XCTAssertTrue(ok.waitForExistence(timeout: 5))
         save(app, "onboarding-teen-parent")

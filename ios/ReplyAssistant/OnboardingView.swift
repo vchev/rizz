@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// First-run setup: welcome, age check (16+), a real reply in under a minute,
+/// First-run setup: welcome, a real reply in under a minute,
 /// then the one-time keyboard setup. Shown until it's finished once.
 ///
 /// Order follows the onboarding design doc, with the practice reply moved up
@@ -10,15 +10,21 @@ struct OnboardingView: View {
     var onFinish: () -> Void
 
     enum Step: Equatable {
-        case welcome, checkingAge, birthYear, birthday(Int), turnedAway, parentOK
+        case welcome, checkingAge, turnedAway, parentOK
         case tryIt, fullAccess, keyboard, photos
     }
 
     @State private var step: Step
     @Environment(\.scenePhase) private var scenePhase
 
-    /// UI tests skip Apple's age sheet, which they can't tap.
     private let uiTesting = ProcessInfo.processInfo.arguments.contains("-uiTesting")
+
+    /// UI tests stand in for Apple's answer with "-appleAge teen" (or adult, under16).
+    private static var testAppleAge: AgeGroup? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-appleAge"), i + 1 < args.count else { return nil }
+        return AgeGroup(rawValue: args[i + 1])
+    }
 
     init(onFinish: @escaping () -> Void) {
         self.onFinish = onFinish
@@ -40,8 +46,6 @@ struct OnboardingView: View {
             switch step {
             case .welcome: welcome
             case .checkingAge: checkingAge
-            case .birthYear: BirthYearStep { year in chose(birthYear: year) }
-            case .birthday(let year): birthday(year)
             case .turnedAway: turnedAway
             case .parentOK: parentOK
             case .tryIt: TryItStep { go(.fullAccess) }
@@ -58,26 +62,24 @@ struct OnboardingView: View {
 
     // MARK: Age
 
+    /// No age screen (decided Nov 4): the App Store's 16+ rating gates downloads.
+    /// Apple's age range, once switched on (paid developer account), quietly sets
+    /// teen mode or turns away under-16s, with a time limit so it can never hang.
+    /// No answer = carry on to the sample replies.
     private func checkAge() {
-        if uiTesting { go(.birthYear); return }
+        if uiTesting {
+            if let group = Self.testAppleAge { set(group) } else { go(.tryIt) }
+            return
+        }
+        guard AgeCheck.isEnabled else { go(.tryIt); return }
         go(.checkingAge)
         Task {
-            if let group = await AgeCheck.askApple() {
+            if let group = await AgeCheck.askApple(timeout: 3) {
                 AgeSettings.source = "apple"
                 set(group)
             } else {
-                go(.birthYear)
+                go(.tryIt)
             }
-        }
-    }
-
-    private func chose(birthYear: Int) {
-        let year = Calendar.current.component(.year, from: Date())
-        if let group = AgeFromBirthYear.group(birthYear: birthYear, currentYear: year) {
-            AgeSettings.source = "asked"
-            set(group)
-        } else {
-            go(.birthday(birthYear))
         }
     }
 
@@ -109,26 +111,18 @@ struct OnboardingView: View {
         }
     }
 
-    private func birthday(_ year: Int) -> some View {
-        StepPage(icon: "gift", title: "Have you had your birthday yet this year?", subtitle: nil) {
-            VStack(spacing: 12) {
-                Button("Yes") { finishBirthday(year, had: true) }.buttonStyle(PrimaryButton())
-                Button("Not yet") { finishBirthday(year, had: false) }.buttonStyle(SecondaryButton())
-            }
-        }
-    }
-
-    private func finishBirthday(_ year: Int, had: Bool) {
-        let now = Calendar.current.component(.year, from: Date())
-        AgeSettings.source = "asked"
-        set(AgeFromBirthYear.group(birthYear: year, currentYear: now, hadBirthdayThisYear: had) ?? .under16)
-    }
-
     private var turnedAway: some View {
         StepPage(icon: "hand.raised",
                  title: "Coax is for people 16 and older",
                  subtitle: "Thanks for checking it out. Coax will be here when you're 16.") {
-            EmptyView()
+            #if DEBUG
+            // Test builds only, so you can try the other paths without deleting the app.
+            Button("Start over (test builds only)") {
+                AgeSettings.reset()
+                go(.welcome)
+            }
+            .buttonStyle(SecondaryButton())
+            #endif
         }
         .accessibilityIdentifier("turnedAway")
     }
@@ -211,31 +205,6 @@ struct OnboardingView: View {
     private func finish() {
         AgeSettings.onboarded = true
         onFinish()
-    }
-}
-
-// MARK: - Birth year (when iPhone can't share an age range)
-
-private struct BirthYearStep: View {
-    var onDone: (Int) -> Void
-    private let thisYear = Calendar.current.component(.year, from: Date())
-    @State private var year: Int = Calendar.current.component(.year, from: Date())
-
-    var body: some View {
-        StepPage(icon: "calendar", title: "What year were you born?",
-                 subtitle: "Stays on your phone.") {
-            VStack(spacing: 12) {
-                Picker("Birth year", selection: $year) {
-                    ForEach((thisYear - 100)...thisYear, id: \.self) { y in
-                        Text(String(y)).tag(y)
-                    }
-                }
-                .pickerStyle(.wheel)
-                .frame(height: 150)
-                Button("Continue") { onDone(year) }
-                    .buttonStyle(PrimaryButton())
-            }
-        }
     }
 }
 

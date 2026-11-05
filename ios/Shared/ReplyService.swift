@@ -95,6 +95,7 @@ struct SampleReplyService: ReplyService {
 /// Request (POST, JSON):
 ///   {"platform": "imessage", "n": 3, "tone": "funnier",   // tone is optional
 ///    "under_18": true,                                   // teen mode only
+///    "voice": {"length": 0.2, ..., "examples": ["..."]}, // only when the voice profile is on
 ///    "messages": [{"speaker": "them", "text": "..."}, {"speaker": "you", "text": "..."}]}
 /// Response (JSON):
 ///   {"replies": [{"text": "..."}, ...]}
@@ -114,9 +115,11 @@ struct HTTPReplyService: ReplyService {
         var under18: Bool? = nil
         var messages: [ChatMessage]
         var replyingTo: String?
+        /// The user's voice profile (Sprint 3 preview). Left out when it's off.
+        var voice: VoiceProfile.Payload? = nil
 
         enum CodingKeys: String, CodingKey {
-            case platform, n, tone, messages
+            case platform, n, tone, messages, voice
             case under18 = "under_18"
             case replyingTo = "replying_to"
         }
@@ -159,7 +162,8 @@ struct HTTPReplyService: ReplyService {
         request.httpBody = try JSONEncoder().encode(
             RequestBody(platform: platform, n: AppConfig.repliesPerRequest, tone: tone,
                         under18: AgeSettings.wantsTeenReplies ? true : nil, messages: messages,
-                        replyingTo: replyingTo))
+                        replyingTo: replyingTo,
+                        voice: VoiceSettings.voiceForRequest(learningFrom: messages)))
 
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
