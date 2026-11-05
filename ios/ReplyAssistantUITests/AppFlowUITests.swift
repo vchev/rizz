@@ -10,7 +10,7 @@ final class AppFlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTesting"]
         app.launch()
-        save(app, "1-start-screen")
+        save(app, "1-home")
 
         let example = app.buttons["Try it with an example chat"]
         if !example.waitForExistence(timeout: 5) { app.swipeUp() }
@@ -23,6 +23,10 @@ final class AppFlowUITests: XCTestCase {
 
         reply.tap()
         save(app, "3-after-copy")
+
+        app.buttons["Fix the chat"].tap()
+        XCTAssertTrue(app.navigationBars["Fix the chat"].waitForExistence(timeout: 5))
+        save(app, "4-fix-the-chat")
     }
 
     /// Keeps screenshots in the test results; also writes PNGs to SCREENSHOT_DIR when set.

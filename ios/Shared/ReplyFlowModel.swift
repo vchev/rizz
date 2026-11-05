@@ -176,6 +176,19 @@ final class ReplyFlowModel: ObservableObject {
         await generate()
     }
 
+    /// A chat saved earlier (Home's "Recent chats"): fresh replies for where it left off.
+    func open(_ saved: SavedChat) async {
+        replies = []
+        previews = []
+        messages = saved.messages
+        readCount = saved.latest.map { $0.count } ?? saved.messages.count
+        chatID = saved.id
+        latestStart = saved.latest?.lowerBound
+        replyingTo = nil
+        editedSinceReplies = false
+        await generate()
+    }
+
     /// A made-up chat for trying the app without a screenshot.
     static let exampleChat = ChatMessage.example
 

@@ -1,7 +1,7 @@
 import XCTest
 
-/// Walks through first-run setup in the simulator. There's no age screen;
-/// "-appleAge" stands in for Apple's age range.
+/// Walks through first-run setup in the simulator: Try it, Keyboard, Photos,
+/// then Home. There's no age screen; "-appleAge" stands in for Apple's age range.
 final class OnboardingUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
@@ -14,70 +14,78 @@ final class OnboardingUITests: XCTestCase {
         return app
     }
 
-    private func getStarted(_ app: XCUIApplication) {
-        let start = app.buttons["Get started"]
-        XCTAssertTrue(start.waitForExistence(timeout: 5))
-        save(app, "onboarding-1-welcome")
-        start.tap()
+    private func sampleReply(_ app: XCUIApplication) -> XCUIElement {
+        app.buttons.containing(NSPredicate(format: "label CONTAINS[c] %@", "Sample reply")).firstMatch
     }
 
-    func testAdultSeesARealReplyThenSetsUpKeyboard() throws {
+    func testAdultSeesARealReplyThenSetsUp() throws {
         let app = launch()
-        getStarted(app)   // no age screen: straight to replies
 
-        let reply = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] %@", "Sample reply")).firstMatch
+        // 1. Try it: a reply in the first minute, before any setup.
+        let reply = sampleReply(app)
         XCTAssertTrue(reply.waitForExistence(timeout: 30), "Replies should appear in the first minute")
-        save(app, "onboarding-3-first-reply")
-        app.buttons["Next"].tap()
+        save(app, "onboarding-1-try-it")
+        reply.tap()
+        save(app, "onboarding-1b-reply-in-message-box")
+        app.buttons["Set it up · 1 minute"].tap()
 
-        XCTAssertTrue(app.staticTexts["Your replies wait in the Coax keyboard"].waitForExistence(timeout: 5))
-        save(app, "onboarding-4-full-access")
-        app.buttons["Next"].tap()
+        // 2. Keyboard.
+        XCTAssertTrue(app.staticTexts["Add the Coax keyboard"].waitForExistence(timeout: 5))
+        save(app, "onboarding-2-keyboard")
+        app.buttons["Later"].tap()
 
-        let skip = app.buttons["Skip for now"]
-        XCTAssertTrue(skip.waitForExistence(timeout: 5))
-        save(app, "onboarding-5-keyboard")
-        skip.tap()
+        // 3. Photos, with consent naming the AI.
+        XCTAssertTrue(app.staticTexts["Replies are written by Claude, made by Anthropic"].waitForExistence(timeout: 5))
+        save(app, "onboarding-3-photos")
+        app.buttons["Not now"].tap()
 
-        let notNow = app.buttons["Not now"]
-        XCTAssertTrue(notNow.waitForExistence(timeout: 5))
-        save(app, "onboarding-6-photos")
-        notNow.tap()
+        // Home.
+        XCTAssertTrue(app.buttons["Get replies from a screenshot"].waitForExistence(timeout: 5), "Home after setup")
+        XCTAssertTrue(app.staticTexts["Here's the move"].exists)
+        save(app, "home-first-visit")
+    }
 
-        XCTAssertTrue(app.navigationBars["Coax"].waitForExistence(timeout: 5), "Main screen after setup")
+    func testBackGoesToThePreviousStep() throws {
+        let app = launch()
+        let setUp = app.buttons["Set it up · 1 minute"]
+        XCTAssertTrue(setUp.waitForExistence(timeout: 30))
+        setUp.tap()
+        XCTAssertTrue(app.buttons["Later"].waitForExistence(timeout: 5))
+        app.buttons["Back"].tap()
+        XCTAssertTrue(setUp.waitForExistence(timeout: 5))
     }
 
     func testUnder16IsTurnedAway() throws {
         let app = launch(appleAge: "under16")
-        getStarted(app)
-        XCTAssertTrue(app.staticTexts["Coax is for people 16 and older"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Coax is for people 16 and older"].waitForExistence(timeout: 10))
         save(app, "onboarding-under-16")
 
         // Test builds can start over from here.
         app.buttons["Start over (test builds only)"].tap()
-        XCTAssertTrue(app.buttons["Get started"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Set it up · 1 minute"].waitForExistence(timeout: 5))
     }
 
-    func testSetupCanBeReplayedFromTheMainScreen() throws {
+    func testSetupCanBeReplayedFromSettings() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiTesting"]   // already set up: main screen
+        app.launchArguments = ["-uiTesting"]   // already set up: Home
         app.launch()
+        let gear = app.buttons["Settings"]
+        XCTAssertTrue(gear.waitForExistence(timeout: 5))
+        gear.tap()
+        save(app, "settings")
         let replay = app.buttons["Show setup again"]
         XCTAssertTrue(replay.waitForExistence(timeout: 5))
         replay.tap()
-        XCTAssertTrue(app.buttons["Get started"].waitForExistence(timeout: 5))
-        save(app, "onboarding-replayed")
+        XCTAssertTrue(app.buttons["Set it up · 1 minute"].waitForExistence(timeout: 10))
     }
 
     func testSixteenOrSeventeenAsksForParentOK() throws {
         let app = launch(appleAge: "teen")
-        getStarted(app)
         let ok = app.buttons["My parent or guardian said OK"]
-        XCTAssertTrue(ok.waitForExistence(timeout: 5))
+        XCTAssertTrue(ok.waitForExistence(timeout: 10))
         save(app, "onboarding-teen-parent")
         ok.tap()
-        let reply = app.buttons.containing(NSPredicate(format: "label CONTAINS[c] %@", "Sample reply")).firstMatch
-        XCTAssertTrue(reply.waitForExistence(timeout: 30))
+        XCTAssertTrue(sampleReply(app).waitForExistence(timeout: 30))
     }
 
     private func save(_ app: XCUIApplication, _ name: String) {
