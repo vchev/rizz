@@ -92,8 +92,8 @@ struct ContentView: View {
             title = "Coax keyboard is off"
             fix = { openSettings() }
         } else if !photosOn {
-            title = "Coax can't see your screenshots"
-            fix = { Task { photosOn = await RecentScreenshots.requestAccess(); if !photosOn { openSettings() } } }
+            title = "Coax can't see new screenshots"
+            fix = { Task { _ = await RecentScreenshots.requestAccess(); photosOn = RecentScreenshots.hasFullAccess; if !photosOn { openSettings() } } }
         } else {
             return nil
         }
