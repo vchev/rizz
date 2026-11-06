@@ -30,6 +30,10 @@ final class AppFlowUITests: XCTestCase {
 
         reply.tap()
         save(app, "3-after-copy")
+        XCTAssertTrue(app.buttons["Try another chat"].waitForExistence(timeout: 5),
+                      "After a copy, the next-step bar stays with a way out")
+        XCTAssertTrue(app.buttons["Pick another reply"].exists)
+        app.buttons["Pick another reply"].tap()
 
         let fix = app.buttons["Fix the chat"]
         XCTAssertTrue(fix.waitForExistence(timeout: 5), "Fix the chat should show above the replies")
