@@ -9,10 +9,11 @@ struct KeyboardActions {
     var nextKeyboard: () -> Void
 }
 
-/// Direction A (Nov 5): the keyboard opens on your replies. One bar on top
-/// ([ABC] [Take a screenshot] [1·2·3 shots] [clipboard] [globe]), then three
-/// numbered reply cards with their mood, then the mood tags. Coax's own letter
-/// keys sit behind ABC: typing works without Full Access (App Review rule
+/// Direction A (Nov 5, revised Nov 6): the keyboard opens on your replies. One
+/// bar on top ([Type] [Use my last screenshot] [shots count] [clipboard]
+/// [globe]), then three numbered reply cards with their mood, then the mood
+/// tags. Tapping a reply types it in and Coax stays open: tapping another swaps
+/// it. Coax's own letter keys sit behind Type: typing works without Full Access (App Review rule
 /// 4.4.1); replies need it, because without it iOS gives keyboards no
 /// clipboard and no internet.
 struct KeyboardView: View {
@@ -47,7 +48,7 @@ struct KeyboardView: View {
 
     private var topBar: some View {
         HStack(spacing: 6) {
-            // ABC opens Coax's letter keys; on the keys it turns into a way back to replies.
+            // Type opens Coax's letter keys; on the keys it turns into a way back to replies.
             Button {
                 state.panel = state.panel == .keys ? (state.hasFullAccess ? .replies : .fullAccessHelp) : .keys
             } label: {
@@ -55,24 +56,25 @@ struct KeyboardView: View {
                     if state.panel == .keys {
                         Image(systemName: "text.bubble.fill")
                     } else {
-                        Text("ABC")
+                        Text("Type")
                     }
                 }
                 .font(.caption.weight(.bold))
-                .frame(width: 42, height: 34)
+                .frame(width: 48, height: 34)
                 .background(Color.primary, in: Capsule())
                 .foregroundStyle(Color(.systemBackground))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(state.panel == .keys ? "Back to replies" : "Type with letters")
 
-            ReplyBarButton(title: "Take a screenshot", systemImage: "camera.viewfinder", prominent: true) {
+            ReplyBarButton(title: state.screenshotCount == 1 ? "Use my last screenshot" : "Use my last \(state.screenshotCount)",
+                           systemImage: "photo.on.rectangle", prominent: true) {
                 start(actions.getRepliesFromScreenshots)
             }
             .disabled(model.isBusy)
             .accessibilityLabel(state.screenshotCount == 1 ? "Reply to my last screenshot"
                                                            : "Reply to my last \(state.screenshotCount) screenshots")
-            .accessibilityHint("Or take a new screenshot and Coax reads it by itself")
+            .accessibilityHint("Reads it on your iPhone. Or take a new screenshot and Coax reads it by itself")
             ShotCountButton(count: $state.screenshotCount)
                 .disabled(model.isBusy)
             // Backup for when a screenshot can't be read: replies to whatever was copied.
@@ -185,6 +187,11 @@ private struct RepliesPanel: View {
                                 actions.insert(reply)
                             }
                         }
+                        if state.insertedID != nil {
+                            Text("In your message. Tap another reply to swap it.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                         if model.service.isSample {
                             Text("Sample replies until the reply engine is connected")
                                 .font(.caption2)
@@ -244,7 +251,7 @@ private struct ReplyCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(number). " + (reply.label.map { "\($0): \(reply.text)" } ?? reply.text))
-        .accessibilityHint("Types this reply into the message box")
+        .accessibilityHint(inserted ? "Already in the message box" : "Types this reply into the message box, replacing one picked before")
     }
 }
 

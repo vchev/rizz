@@ -78,7 +78,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refreshState()
-        // Open on replies every time (Coax's letter keys are behind ABC).
+        // Open on replies every time (Coax's letter keys are behind Type).
         state.panel = hasFullAccess ? .replies : .fullAccessHelp
         showShortcutReplies()
         startWatching()
@@ -115,6 +115,7 @@ final class KeyboardViewController: UIInputViewController {
     private func showShortcutReplies() {
         guard hasFullAccess, !model.isBusy, let pending = PendingReplies.take() else { return }
         state.insertedID = nil
+        insertedText = nil
         model.show(pending)
         state.panel = .replies
     }
@@ -131,12 +132,23 @@ final class KeyboardViewController: UIInputViewController {
 
     /// After a reply goes in, hand back to the user's usual keyboard, which
     /// types and autocorrects better than ours. Coax is for getting replies.
-    /// Direction A default (Nov 5 review): hand back so you can edit and send.
-    static let handBackAfterReply = true
+    /// Nov 6 (Vanessa's test): stay on Coax, so a wrong pick is fixed by tapping
+    /// another reply, which swaps it in.
+    static let handBackAfterReply = false
+
+    /// The reply Coax last typed in, so tapping another one can replace it.
+    private var insertedText: String?
 
     private func insert(_ reply: ReplySuggestion) {
+        guard state.insertedID != reply.id else { return }
         UIDevice.current.playInputClick()
-        textDocumentProxy.insertText(reply.text)
+        let proxy = textDocumentProxy
+        // Swap: take out the reply picked before, if it's still right before the cursor.
+        if let previous = insertedText, let before = proxy.documentContextBeforeInput, before.hasSuffix(previous) {
+            for _ in 0..<previous.count { proxy.deleteBackward() }
+        }
+        proxy.insertText(reply.text)
+        insertedText = reply.text
         state.insertedID = reply.id
         state.shifted = false
         guard Self.handBackAfterReply else { return }
@@ -151,6 +163,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private func type(_ text: String) {
         watcher.userIsTyping()
+        insertedText = nil
         let proxy = textDocumentProxy
         // Double space after a word types ". ", like Apple's keyboard.
         if text == " ", let before = proxy.documentContextBeforeInput,
@@ -165,6 +178,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private func deleteBackward() {
         watcher.userIsTyping()
+        insertedText = nil
         textDocumentProxy.deleteBackward()
         updateAutoCapital()
     }
@@ -179,6 +193,7 @@ final class KeyboardViewController: UIInputViewController {
         refreshState()
         guard hasFullAccess else { return }
         state.insertedID = nil
+        insertedText = nil
         state.autoRead = auto
         let count = state.screenshotCount
         Task { @MainActor in await model.readLatestScreenshots(count: count) }
@@ -189,6 +204,7 @@ final class KeyboardViewController: UIInputViewController {
         refreshState()
         guard hasFullAccess else { return }
         state.insertedID = nil
+        insertedText = nil
         state.autoRead = false
         let pasteboard = UIPasteboard.general
         Task { @MainActor in

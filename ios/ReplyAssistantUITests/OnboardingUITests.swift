@@ -1,7 +1,7 @@
 import XCTest
 
 /// Walks through first-run setup in the simulator: Try it, Photos, Keyboard,
-/// then Home. There's no age screen; "-appleAge" stands in for Apple's age range.
+/// You're set, then Home. There's no age screen; "-appleAge" stands in for Apple's age range.
 final class OnboardingUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
@@ -32,12 +32,21 @@ final class OnboardingUITests: XCTestCase {
         // 2. Photos, inside the app, with consent naming the AI.
         XCTAssertTrue(app.staticTexts["Replies are written by Claude, made by Anthropic"].waitForExistence(timeout: 5))
         save(app, "onboarding-2-photos")
-        app.buttons["Not now"].tap()
+        // Agreeing shows the result before moving on (no silent jump).
+        app.buttons["Agree and allow Photos"].tap()
+        XCTAssertTrue(app.staticTexts["Photos is on"].waitForExistence(timeout: 5), "Photos result shows")
+        save(app, "onboarding-2b-photos-on")
+        app.buttons["Next"].tap()
 
         // 3. Keyboard: one trip to Settings.
         XCTAssertTrue(app.staticTexts["Add the Coax keyboard"].waitForExistence(timeout: 5))
         save(app, "onboarding-3-keyboard")
         app.buttons["Later"].tap()
+
+        // 4. You're set: a clear end, with the three taps.
+        XCTAssertTrue(app.staticTexts["You're set"].waitForExistence(timeout: 5), "Setup ends on You're set")
+        save(app, "onboarding-4-done")
+        app.buttons["Start using Coax"].tap()
 
         // Home.
         XCTAssertTrue(app.buttons["Get replies from a screenshot"].waitForExistence(timeout: 5), "Home after setup")
