@@ -102,7 +102,12 @@ final class ReplyFlowModel: ObservableObject {
         do {
             let started = Date()
             var all: [ChatMessage] = []
-            let chats = try await readAll(images)
+            let read = try await readAll(images)
+            let chats = read.filter { !$0.isCoax }
+            if chats.isEmpty && !read.isEmpty {
+                phase = .failed(Self.onlyCoaxMessage)
+                return
+            }
             for chat in chats { all = Transcript.append(chat.messages, to: all) }
             replyingTo = chats.last(where: { $0.replyingTo != nil })?.replyingTo
             readSeconds = Date().timeIntervalSince(started)
@@ -125,9 +130,32 @@ final class ReplyFlowModel: ObservableObject {
         previews = []
         do {
             let started = Date()
-            let shots = try await RecentScreenshots.latestWithDates(min(max(count, 1), 3))
+            let count = min(max(count, 1), 3)
+            var shots = try await RecentScreenshots.latestWithDates(count)
             // Read all screenshots at once rather than one after another.
-            let chats = try await readAll(shots.map(\.image))
+            var chats = try await readAll(shots.map(\.image))
+            // Screenshots of Coax itself (taken to share feedback, say) are skipped, and
+            // older screenshots fill their place, looking back at most 3 more.
+            var looked = shots.count
+            while chats.contains(where: \.isCoax), looked < count + 3 {
+                let kept = chats.indices.filter { !chats[$0].isCoax }
+                let missing = min(count - kept.count, count + 3 - looked)
+                shots = kept.map { shots[$0] }
+                chats = kept.map { chats[$0] }
+                guard missing > 0,
+                      let older = try? await RecentScreenshots.latestWithDates(missing, skipping: looked),
+                      !older.isEmpty else { break }
+                looked += older.count
+                shots = older + shots
+                chats = try await readAll(older.map(\.image)) + chats
+            }
+            let chatShots = chats.indices.filter { !chats[$0].isCoax }
+            shots = chatShots.map { shots[$0] }
+            chats = chatShots.map { chats[$0] }
+            guard !chats.isEmpty else {
+                phase = .failed(Self.onlyCoaxMessage)
+                return
+            }
             let parts = chats.map(\.messages)
             let dates = shots.map(\.taken)
             replyingTo = chats.last(where: { $0.replyingTo != nil })?.replyingTo   // the newest bar wins
@@ -145,6 +173,8 @@ final class ReplyFlowModel: ObservableObject {
             phase = .failed(error.localizedDescription)
         }
     }
+
+    static let onlyCoaxMessage = "Your last screenshots show Coax, not a chat. Screenshot the chat and try again."
 
     /// Reads screenshots side by side; results keep the screenshots' order.
     private func readAll(_ images: [UIImage]) async throws -> [ScreenshotReader.Chat] {

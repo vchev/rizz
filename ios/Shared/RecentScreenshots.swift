@@ -49,17 +49,18 @@ enum RecentScreenshots {
     }
 
     /// Like `latest`, with when each screenshot was taken. Oldest first.
-    static func latestWithDates(_ count: Int = 2, maxWidth: CGFloat = ScreenshotReader.maxWidth) async throws
+    /// `skipping` leaves out that many of the newest screenshots (used to look further back).
+    static func latestWithDates(_ count: Int = 2, skipping: Int = 0, maxWidth: CGFloat = ScreenshotReader.maxWidth) async throws
         -> [(image: UIImage, taken: Date)] {
         // Inside the keyboard, iOS may report a status that differs from the
         // app's, so try the fetch anyway and only blame access if it finds nothing.
         let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         if status == .limited { throw Failure.limitedAccess }
 
-        let assets = fetchScreenshots(limit: count)
+        let assets = fetchScreenshots(limit: count + skipping)
 
         var newestFirst: [PHAsset] = []
-        assets.enumerateObjects { asset, _, _ in newestFirst.append(asset) }
+        assets.enumerateObjects { asset, i, _ in if i >= skipping { newestFirst.append(asset) } }
         guard !newestFirst.isEmpty else {
             throw status == .authorized ? Failure.noneFound : Failure.noAccess(status.rawValue)
         }
@@ -68,7 +69,7 @@ enum RecentScreenshots {
         for asset in newestFirst.reversed() {
             // A screenshot taken a moment ago may not be ready to load yet: wait
             // for the newest one rather than quietly reading only older ones.
-            let isNewest = asset.localIdentifier == newestFirst.first?.localIdentifier
+            let isNewest = skipping == 0 && asset.localIdentifier == newestFirst.first?.localIdentifier
             var image = await image(for: asset, maxWidth: maxWidth)
             var tries = 0
             while image == nil && isNewest && tries < 8 {
