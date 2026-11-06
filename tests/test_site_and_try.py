@@ -20,6 +20,16 @@ class MarkdownTest(unittest.TestCase):
 
 
 class BuildTest(unittest.TestCase):
+    def setUp(self):   # build into a temp folder so tests never touch the committed public/
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.real_out = build_site.OUT
+        build_site.OUT = Path(self.tmp.name) / "public"
+
+    def tearDown(self):
+        build_site.OUT = self.real_out
+        self.tmp.cleanup()
+
     def test_preview_build_is_noindex_and_skips_drafts(self):
         urls = build_site.build()
         out = build_site.OUT
@@ -31,13 +41,10 @@ class BuildTest(unittest.TestCase):
             self.assertNotIn("APPSTORE_LINK", page.read_text())
 
     def test_domain_build_has_sitemap(self):
-        try:
-            build_site.build("example.com", "https://apps.apple.com/app/id1")
-            out = build_site.OUT
-            self.assertIn("https://example.com/guides/", (out / "sitemap.xml").read_text())
-            self.assertNotIn("noindex", (out / "index.html").read_text())
-        finally:
-            build_site.build()   # leave the committed preview build in place
+        build_site.build("example.com", "https://apps.apple.com/app/id1")
+        out = build_site.OUT
+        self.assertIn("https://example.com/guides/", (out / "sitemap.xml").read_text())
+        self.assertNotIn("noindex", (out / "index.html").read_text())
 
 
 class TryToolTest(unittest.TestCase):

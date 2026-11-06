@@ -5,7 +5,7 @@ plus the free web reply tool (`api/try_tool.py`). Plain HTML built by a standard
 
 ```
 python3 tools/build_site.py                       # preview: noindex, robots blocks crawlers
-python3 tools/build_site.py --domain getcoax.app --app-store "https://apps.apple.com/app/idNNN"
+python3 tools/build_site.py --domain hicoax.com --app-store "https://apps.apple.com/app/idNNN"
 ```
 
 - `site/guides/*.md`: one guide per file (front matter: title, slug, keyword, updated).
