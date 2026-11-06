@@ -31,12 +31,18 @@ jobs:
         run: |
           SIM=$(xcrun simctl list devices available | grep -m1 -o 'iPhone [^(]*' | sed 's/ *$//')
           echo "Using simulator: $SIM"
+          set +e
           xcodebuild test \
             -project ios/ReplyAssistant.xcodeproj \
             -scheme ReplyAssistant \
             -destination "platform=iOS Simulator,name=$SIM" \
-            CODE_SIGNING_ALLOWED=NO | tail -n 80
-          exit ${PIPESTATUS[0]}
+            CODE_SIGNING_ALLOWED=NO > test.log 2>&1
+          STATUS=$?
+          tail -n 80 test.log
+          # Why a test failed: assertion lines and each test's result.
+          echo "---- Failures ----"
+          grep -E "error: |XCTAssert|Test Case .*(failed|passed)" test.log | tail -n 60 || true
+          exit $STATUS
       - name: Keep the app screenshots from the UI test
         if: always()
         uses: actions/upload-artifact@v4

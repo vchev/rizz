@@ -1,20 +1,24 @@
 import SwiftUI
 import UIKit
 
-/// First-run setup: welcome, a real reply in under a minute,
-/// then the one-time keyboard setup. Shown until it's finished once.
+/// First-run setup, three screens (design review, Nov 5):
+/// 1. Try it: a real reply to an example chat, before any setup.
+/// 2. Photos, asked inside the app, with consent to send chat text to the AI.
+/// 3. Add the Coax keyboard: one trip to Coax's page in Settings.
+/// Then Home, which shows a one-time "Here's the move" card.
 ///
-/// Order follows the onboarding design doc, with the practice reply moved up
-/// so people see Coax work before any setup.
+/// Apple's age range (once switched on) still runs quietly in the background:
+/// it can turn away under-16s or ask 16-17s for a parent's OK.
 struct OnboardingView: View {
     var onFinish: () -> Void
 
     enum Step: Equatable {
-        case welcome, checkingAge, turnedAway, parentOK
-        case tryIt, fullAccess, keyboard, photos
+        case tryIt, keyboard, photos
+        case checkingAge, turnedAway, parentOK
     }
 
     @State private var step: Step
+    @State private var ageChecked = false
     @Environment(\.scenePhase) private var scenePhase
 
     private let uiTesting = ProcessInfo.processInfo.arguments.contains("-uiTesting")
@@ -36,49 +40,45 @@ struct OnboardingView: View {
         switch AgeSettings.ageGroup {
         case .under16: return .turnedAway
         case .teen where AgeSettings.parentOK == nil: return .parentOK
-        case .teen, .adult: return .tryIt
-        case nil: return .welcome
+        default: return .tryIt
         }
     }
 
     var body: some View {
         Group {
             switch step {
-            case .welcome: welcome
+            case .tryIt: TryItStep { go(.photos) }
+            case .keyboard: keyboard
+            case .photos: photos
             case .checkingAge: checkingAge
             case .turnedAway: turnedAway
             case .parentOK: parentOK
-            case .tryIt: TryItStep { go(.fullAccess) }
-            case .fullAccess: fullAccess
-            case .keyboard: keyboard
-            case .photos: photos
             }
         }
         .animation(.default, value: step)
-        .tint(Color.accentColor)
+        .tint(Color.coax)
+        .task { checkAge() }
     }
 
     private func go(_ next: Step) { withAnimation { step = next } }
 
-    // MARK: Age
+    // MARK: Age (no age screen; decided Nov 4)
 
-    /// No age screen (decided Nov 4): the App Store's 16+ rating gates downloads.
-    /// Apple's age range, once switched on (paid developer account), quietly sets
-    /// teen mode or turns away under-16s, with a time limit so it can never hang.
-    /// No answer = carry on to the sample replies.
+    /// The App Store's 16+ rating gates downloads. Apple's age range, once switched
+    /// on (paid developer account), quietly sets teen mode or turns away under-16s,
+    /// with a time limit so it can never hang. No answer = carry on.
     private func checkAge() {
+        guard !ageChecked, AgeSettings.ageGroup == nil else { return }
+        ageChecked = true
         if uiTesting {
-            if let group = Self.testAppleAge { set(group) } else { go(.tryIt) }
+            if let group = Self.testAppleAge { set(group) }
             return
         }
-        guard AgeCheck.isEnabled else { go(.tryIt); return }
-        go(.checkingAge)
+        guard AgeCheck.isEnabled else { return }
         Task {
             if let group = await AgeCheck.askApple(timeout: 3) {
                 AgeSettings.source = "apple"
                 set(group)
-            } else {
-                go(.tryIt)
             }
         }
     }
@@ -88,38 +88,88 @@ struct OnboardingView: View {
         switch group {
         case .under16: go(.turnedAway)
         case .teen: go(.parentOK)
-        case .adult: go(.tryIt)
+        case .adult: break
         }
     }
 
-    // MARK: Screens
+    // MARK: Setup screens
 
-    private var welcome: some View {
-        StepPage(icon: "bubble.left.and.text.bubble.right.fill",
-                 title: "Replies that sound like you, one tap away",
-                 subtitle: "Free to start. No card, no account.") {
-            Button("Get started") { checkAge() }
-                .buttonStyle(PrimaryButton())
+    /// After Photos: skip the keyboard step when it's already on (setup replayed).
+    private func afterPhotos() {
+        if KeyboardCheck.isAdded && RecentScreenshots.hasFullAccess { finish() } else { go(.keyboard) }
+    }
+
+    /// One trip to Settings: Coax's own page holds Keyboards (and Photos, if
+    /// only some photos were allowed).
+    private var keyboard: some View {
+        SetupPage(step: 2, onBack: { go(.photos) }, skipTitle: "Later", onSkip: { finish() }) {
+            ScreenTitle(title: "Add the Coax keyboard",
+                        subtitle: "One trip to Settings, about 30 seconds. Coax moves on by itself when you come back.")
+            SettingsPicture(fixPhotos: RecentScreenshots.isLimited)
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "checkmark.shield.fill").foregroundStyle(Color.coax)
+                Text("iPhone warns about Full Access for every keyboard. **Coax never saves what you type.** It only uses the internet to fetch replies.")
+                    .font(.subheadline)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.coaxSoft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        } bottom: {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            .buttonStyle(PrimaryButton())
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, KeyboardCheck.isAdded { finish() }
         }
     }
+
+    /// Asked inside the app first: one tap on iPhone's own prompt, no searching.
+    private var photos: some View {
+        SetupPage(step: 1, onBack: { go(.tryIt) }, skipTitle: "Not now", onSkip: { afterPhotos() }) {
+            ScreenTitle(title: "Screenshot the chat. Coax does the rest.",
+                        subtitle: "Coax needs Photos to see your newest screenshot. On the next prompt, tap Allow Full Access.")
+            ScreenshotPicture()
+            VStack(alignment: .leading, spacing: 10) {
+                Promise(icon: "iphone", text: "Screenshots are read on your iPhone")
+                Promise(icon: "checkmark", text: "Only the chat text is sent, never the image")
+                Promise(icon: "checkmark", text: "Replies are written by Claude, made by Anthropic")
+                Promise(icon: "checkmark", text: "Nothing is kept")
+            }
+        } bottom: {
+            Button("Agree and allow Photos") {
+                Task {
+                    if !uiTesting { _ = await RecentScreenshots.requestAccess() }
+                    afterPhotos()
+                }
+            }
+            .buttonStyle(PrimaryButton())
+        }
+    }
+
+    // MARK: Age screens (only when Apple's age range says so)
 
     private var checkingAge: some View {
-        StepPage(icon: "person.badge.shield.checkmark",
-                 title: "Checking your age range",
-                 subtitle: "iPhone shares only a range, never your birthday.") {
+        VStack(spacing: 16) {
             ProgressView()
+            Text("Checking your age range").foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var turnedAway: some View {
-        StepPage(icon: "hand.raised",
-                 title: "Coax is for people 16 and older",
-                 subtitle: "Thanks for checking it out. Coax will be here when you're 16.") {
+        SetupPage(step: 0, onBack: nil) {
+            ScreenTitle(title: "Coax is for people 16 and older",
+                        subtitle: "Thanks for checking it out. Coax will be here when you're 16.")
+        } bottom: {
             #if DEBUG
             // Test builds only, so you can try the other paths without deleting the app.
             Button("Start over (test builds only)") {
                 AgeSettings.reset()
-                go(.welcome)
+                go(.tryIt)
             }
             .buttonStyle(SecondaryButton())
             #endif
@@ -128,77 +178,18 @@ struct OnboardingView: View {
     }
 
     private var parentOK: some View {
-        StepPage(icon: "figure.and.child.holdinghands",
-                 title: "Ask a parent or guardian",
-                 subtitle: "You're 16 or 17, so a parent or guardian needs to say it's OK to use Coax. Your replies stay friendly: nothing sexual, no alcohol or drugs.") {
-            VStack(spacing: 12) {
-                Button("My parent or guardian said OK") {
-                    AgeSettings.parentOK = Date()
-                    go(.tryIt)
-                }
-                .buttonStyle(PrimaryButton())
-                Text("If your iPhone is part of Family Sharing, iOS may also ask them first.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+        SetupPage(step: 0, onBack: nil) {
+            ScreenTitle(title: "Ask a parent or guardian",
+                        subtitle: "You're 16 or 17, so a parent or guardian needs to say it's OK to use Coax. Your replies stay friendly: nothing sexual, no alcohol or drugs.")
+            Text("If your iPhone is part of Family Sharing, iOS may also ask them first.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        } bottom: {
+            Button("My parent or guardian said OK") {
+                AgeSettings.parentOK = Date()
+                go(.tryIt)
             }
-        }
-    }
-
-    private var fullAccess: some View {
-        StepPage(icon: "lock.shield",
-                 title: "Your replies wait in the Coax keyboard",
-                 subtitle: "iPhone will show a scary warning when you turn on Full Access. Here's what Coax actually does.") {
-            VStack(alignment: .leading, spacing: 14) {
-                Bullet(icon: "network", text: "Full Access lets Coax bring replies into the keyboard and reach the internet.")
-                Bullet(icon: "keyboard", text: "Coax never records or sends what you type on its keys.")
-                Bullet(icon: "iphone", text: "Screenshots are read on your phone. Only the chat text is sent, and it isn't kept.")
-                Button("Next") { go(KeyboardCheck.isAdded ? .photos : .keyboard) }
-                    .buttonStyle(PrimaryButton())
-                    .padding(.top, 8)
-            }
-        }
-    }
-
-    private var keyboard: some View {
-        StepPage(icon: "keyboard.badge.ellipsis",
-                 title: "Turn on the Coax keyboard",
-                 subtitle: "One time. Coax moves on by itself when you come back.") {
-            VStack(alignment: .leading, spacing: 12) {
-                NumberedLine(number: 1, text: "Tap Open Settings, then Keyboards.")
-                NumberedLine(number: 2, text: "Turn on Coax.")
-                NumberedLine(number: 3, text: "Turn on Allow Full Access, then tap Allow.")
-                Button("Open Settings") {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
-                }
-                .buttonStyle(PrimaryButton())
-                .padding(.top, 8)
-                Button("Skip for now") { go(.photos) }
-                    .buttonStyle(SecondaryButton())
-            }
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active, KeyboardCheck.isAdded { go(.photos) }
-        }
-    }
-
-    private var photos: some View {
-        StepPage(icon: "photo.on.rectangle",
-                 title: "Let Coax read your screenshots",
-                 subtitle: "Take a screenshot of a chat while the Coax keyboard is open, and your replies appear. Screenshots are read on your phone and never uploaded.") {
-            VStack(spacing: 12) {
-                Button("Allow Photos") {
-                    Task {
-                        if !uiTesting { _ = await RecentScreenshots.requestAccess() }
-                        finish()
-                    }
-                }
-                .buttonStyle(PrimaryButton())
-                Button("Not now") { finish() }
-                    .buttonStyle(SecondaryButton())
-            }
+            .buttonStyle(PrimaryButton())
         }
     }
 
@@ -208,192 +199,226 @@ struct OnboardingView: View {
     }
 }
 
-// MARK: - A real reply in the first minute
+// MARK: - 1. Try it: welcome and a real reply in one screen
 
 private struct TryItStep: View {
     var onNext: () -> Void
     @StateObject private var model = ReplyFlowModel()
-    @State private var copiedID: UUID?
+    @State private var picked: ReplySuggestion?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("See it work")
-                    .font(.largeTitle.bold())
-                Text("Here's a chat with a match. Coax reads it and writes 3 replies in your style.")
-                    .foregroundStyle(.secondary)
-
-                VStack(spacing: 6) {
-                    ForEach(ReplyFlowModel.exampleChat) { message in
-                        Bubble(message: message)
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Wordmark()
+                    ScreenTitle(title: "Know what to text back.",
+                                subtitle: "Coax reads the chat and writes three replies that sound like you.")
+                    VStack(spacing: 4) {
+                        ForEach(ReplyFlowModel.exampleChat.suffix(3)) { ChatBubble(message: $0) }
                     }
+                    messageBox
+                    replies
                 }
-                .padding(12)
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-
-                replies
-
-                Button("Next") { onNext() }
-                    .buttonStyle(PrimaryButton())
-                    .disabled(model.isBusy)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 16)
             }
-            .padding(24)
+            VStack(spacing: 6) {
+                Button("Set it up · 1 minute") { onNext() }
+                    .buttonStyle(PrimaryButton())
+                Text("Free to start · No account · No card")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
         }
         .task {
             if model.replies.isEmpty { await model.tryExample() }
         }
     }
 
+    /// The message box, with the tapped reply typed in.
+    private var messageBox: some View {
+        HStack {
+            Text(picked?.text ?? "iMessage")
+                .foregroundStyle(picked == nil ? .secondary : .primary)
+            Spacer()
+        }
+        .font(.subheadline)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .overlay(Capsule().strokeBorder(Color(.separator)))
+        .animation(.default, value: picked)
+    }
+
+    /// Drawn like the Coax keyboard: 1·2·3 cards, then mood tags.
     @ViewBuilder private var replies: some View {
-        switch model.phase {
-        case .failed(let message):
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            switch model.phase {
+            case .failed(let message):
                 Text(message).font(.subheadline).foregroundStyle(.secondary)
                 Button("Try again") { Task { await model.tryExample() } }
                     .buttonStyle(SecondaryButton())
-            }
-        case .done:
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Tap one to copy it").font(.headline)
-                ForEach(model.replies) { reply in
-                    Button {
-                        UIPasteboard.general.string = reply.text
-                        copiedID = reply.id
-                    } label: {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(reply.text).foregroundStyle(.primary)
-                                if let label = reply.label {
-                                    Text(label).font(.caption).foregroundStyle(.secondary)
-                                }
-                            }
-                            Spacer()
-                            if copiedID == reply.id {
-                                Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor)
-                            }
-                        }
-                        .multilineTextAlignment(.leading)
-                        .padding(14)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            case .done:
+                Text("Tap one to put it in the message box")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                ForEach(Array(model.replies.enumerated()), id: \.element.id) { index, reply in
+                    CoaxReplyCard(number: index + 1, reply: reply, copied: picked == reply) {
+                        picked = reply
                     }
-                    .buttonStyle(.plain)
                 }
-            }
-        default:
-            HStack(spacing: 10) {
-                ProgressView()
-                Text("Writing replies…").foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 8)
-        }
-    }
-}
-
-private struct Bubble: View {
-    var message: ChatMessage
-
-    var body: some View {
-        let mine = message.speaker == .you
-        HStack {
-            if mine { Spacer(minLength: 40) }
-            Text(message.text)
-                .font(.subheadline)
-                .padding(.horizontal, 12)
+                MoodTagRow(model: model, background: Color(.systemBackground)) { picked = nil }
+            default:
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Writing replies…").foregroundStyle(.secondary)
+                }
                 .padding(.vertical, 8)
-                .foregroundStyle(mine ? .white : .primary)
-                .background(mine ? Color.accentColor : Color(.systemGray5),
-                            in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            if !mine { Spacer(minLength: 40) }
-        }
-    }
-}
-
-// MARK: - Building blocks
-
-private struct StepPage<Content: View>: View {
-    var icon: String
-    var title: String
-    var subtitle: String?
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                Image(systemName: icon)
-                    .font(.system(size: 56))
-                    .foregroundStyle(Color.accentColor)
-                    .padding(.top, 48)
-                Text(title)
-                    .font(.title.bold())
-                    .multilineTextAlignment(.center)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                content
-                    .padding(.top, 12)
             }
-            .padding(24)
-            .frame(maxWidth: .infinity)
         }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
-private struct Bullet: View {
+// MARK: - Pictures
+
+/// Coax's page in Settings, where Open Settings lands, with the taps numbered.
+private struct SettingsPicture: View {
+    /// Only some photos were allowed: fix it on the same page.
+    var fixPhotos: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Settings › Coax")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            VStack(spacing: 0) {
+                if fixPhotos {
+                    row(nil, "Photos", detail: "Full Access")
+                    Divider().padding(.leading, 12)
+                }
+                row(1, "Keyboards", detail: "›")
+            }
+            .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            Text("Then")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            VStack(spacing: 0) {
+                row(2, "Coax", toggle: true)
+                Divider().padding(.leading, 12)
+                row(3, "Allow Full Access", toggle: true)
+            }
+            .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .padding(12)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel((fixPhotos ? "In Settings, set Photos to Full Access. " : "In Settings, ")
+                            + "tap Keyboards, turn on Coax, then turn on Allow Full Access.")
+    }
+
+    private func row(_ n: Int?, _ title: String, detail: String? = nil, toggle: Bool = false) -> some View {
+        HStack {
+            if let n {
+                Text("\(n)")
+                    .font(.caption.bold())
+                    .foregroundStyle(.white)
+                    .frame(width: 20, height: 20)
+                    .background(Color.coax, in: Circle())
+            } else {
+                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
+            }
+            Text(title)
+            Spacer()
+            if toggle {
+                Toggle("", isOn: .constant(true)).labelsHidden().allowsHitTesting(false).tint(.green)
+            } else if let detail {
+                Text(detail).foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+}
+
+/// A screenshot turning into replies in the keyboard.
+private struct ScreenshotPicture: View {
+    var body: some View {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(0..<6) { i in
+                    Capsule()
+                        .fill(i % 3 == 1 ? Color.coax : Color(.systemGray4))
+                        .frame(width: i % 3 == 1 ? 34 : 44, height: 7)
+                        .frame(maxWidth: .infinity, alignment: i % 3 == 1 ? .trailing : .leading)
+                }
+            }
+            .padding(8)
+            .frame(width: 72, height: 130)
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(.separator), lineWidth: 2))
+            Image(systemName: "arrow.right").foregroundStyle(Color.coax)
+            VStack(spacing: 5) {
+                Capsule().fill(Color.coax).frame(height: 10)
+                ForEach(0..<3) { _ in
+                    RoundedRectangle(cornerRadius: 5).fill(Color(.systemBackground)).frame(height: 16)
+                }
+            }
+            .padding(8)
+            .frame(width: 104)
+            .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 12))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct Promise: View {
     var icon: String
     var text: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(spacing: 10) {
             Image(systemName: icon)
-                .frame(width: 24)
-                .foregroundStyle(Color.accentColor)
-            Text(text)
+                .foregroundStyle(Color.coaxDone)
+                .frame(width: 22)
+            Text(text).font(.subheadline)
         }
     }
 }
 
-private struct NumberedLine: View {
-    var number: Int
-    var text: String
+// MARK: - Page frame
+
+/// A setup screen: top bar, scrolling content, one main button at the bottom.
+private struct SetupPage<Content: View, Bottom: View>: View {
+    var step: Int
+    var onBack: (() -> Void)?
+    var skipTitle: String? = nil
+    var onSkip: (() -> Void)? = nil
+    @ViewBuilder var content: Content
+    @ViewBuilder var bottom: Bottom
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text("\(number)")
-                .font(.footnote.bold())
-                .frame(width: 22, height: 22)
-                .background(Color.accentColor.opacity(0.15), in: Circle())
-            Text(text)
+        VStack(spacing: 0) {
+            if step > 0 {
+                SetupBar(step: step, total: 2, onBack: onBack, skipTitle: skipTitle, onSkip: onSkip)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) { content }
+                    .padding(.horizontal, 20)
+                    .padding(.top, step > 0 ? 12 : 48)
+                    .padding(.bottom, 16)
+            }
+            bottom
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
         }
-    }
-}
-
-private struct PrimaryButton: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(Color.accentColor.opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.4),
-                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-}
-
-private struct SecondaryButton: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .foregroundStyle(Color.accentColor)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }
 
