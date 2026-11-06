@@ -5,7 +5,8 @@ import UIKit
 /// 1. Try it: a real reply to an example chat, before any setup.
 /// 2. Photos, asked inside the app, with consent to send chat text to the AI.
 /// 3. Add the Coax keyboard: one trip to Coax's page in Settings.
-/// Then Home, which shows a one-time "Here's the move" card.
+/// 4. You're set: what's on, the three taps, and the optional style quiz.
+/// Then Home.
 ///
 /// Apple's age range (once switched on) still runs quietly in the background:
 /// it can turn away under-16s or ask 16-17s for a parent's OK.
@@ -13,12 +14,15 @@ struct OnboardingView: View {
     var onFinish: () -> Void
 
     enum Step: Equatable {
-        case tryIt, keyboard, photos
+        case tryIt, keyboard, photos, done
         case checkingAge, turnedAway, parentOK
     }
 
     @State private var step: Step
     @State private var ageChecked = false
+    /// Photos access after tapping Agree (nil = not asked on this screen yet).
+    @State private var photosOn: Bool?
+    @State private var showVoice = false
     @Environment(\.scenePhase) private var scenePhase
 
     private let uiTesting = ProcessInfo.processInfo.arguments.contains("-uiTesting")
@@ -50,6 +54,7 @@ struct OnboardingView: View {
             case .tryIt: TryItStep { go(.photos) }
             case .keyboard: keyboard
             case .photos: photos
+            case .done: done
             case .checkingAge: checkingAge
             case .turnedAway: turnedAway
             case .parentOK: parentOK
@@ -96,13 +101,13 @@ struct OnboardingView: View {
 
     /// After Photos: skip the keyboard step when it's already on (setup replayed).
     private func afterPhotos() {
-        if KeyboardCheck.isAdded && RecentScreenshots.hasFullAccess { finish() } else { go(.keyboard) }
+        if KeyboardCheck.isAdded && RecentScreenshots.hasFullAccess { go(.done) } else { go(.keyboard) }
     }
 
     /// One trip to Settings: Coax's own page holds Keyboards (and Photos, if
     /// only some photos were allowed).
     private var keyboard: some View {
-        SetupPage(step: 2, onBack: { go(.photos) }, skipTitle: "Later", onSkip: { finish() }) {
+        SetupPage(step: 2, onBack: { go(.photos) }, skipTitle: "Later", onSkip: { go(.done) }) {
             ScreenTitle(title: "Add the Coax keyboard",
                         subtitle: "One trip to Settings, about 30 seconds. Coax moves on by itself when you come back.")
             SettingsPicture(fixPhotos: RecentScreenshots.isLimited)
@@ -123,7 +128,7 @@ struct OnboardingView: View {
             .buttonStyle(PrimaryButton())
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active, KeyboardCheck.isAdded { finish() }
+            if phase == .active, step == .keyboard, KeyboardCheck.isAdded { go(.done) }
         }
     }
 
@@ -140,14 +145,69 @@ struct OnboardingView: View {
                 Promise(icon: "checkmark", text: "Nothing is kept")
             }
         } bottom: {
-            Button("Agree and allow Photos") {
-                Task {
-                    if !uiTesting { _ = await RecentScreenshots.requestAccess() }
-                    afterPhotos()
+            VStack(spacing: 10) {
+                if let on = photosOn {
+                    PhotosResult(on: on)
+                    Button("Next") { afterPhotos() }
+                        .buttonStyle(PrimaryButton())
+                } else {
+                    Button("Agree and allow Photos") {
+                        Task {
+                            if !uiTesting { _ = await RecentScreenshots.requestAccess() }
+                            // iPhone only asks once; if it was already allowed there's no prompt,
+                            // so say what happened instead of jumping ahead.
+                            photosOn = uiTesting ? true : RecentScreenshots.hasFullAccess
+                        }
+                    }
+                    .buttonStyle(PrimaryButton())
                 }
             }
-            .buttonStyle(PrimaryButton())
         }
+    }
+
+    /// The end of setup: what's on, the three taps, and the optional style quiz.
+    private var done: some View {
+        SetupPage(step: 0, onBack: nil) {
+            VStack(alignment: .leading, spacing: 10) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(Color.coaxDone)
+                ScreenTitle(title: "You're set", subtitle: "Here's the move next time someone texts you.")
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                SetupStatus(title: "Photos", on: uiTesting || RecentScreenshots.hasFullAccess)
+                SetupStatus(title: "Coax keyboard", on: KeyboardCheck.isAdded)
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                DoneMove(number: 1, text: "Screenshot the chat")
+                DoneMove(number: 2, text: "Tap the message box, then switch to Coax with 🌐")
+                DoneMove(number: 3, text: "Tap 1, 2 or 3")
+            }
+            #if DEBUG
+            // Voice profile is a Sprint 3 preview: test builds only for now.
+            Button { showVoice = true } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "wand.and.stars")
+                        .font(.title3)
+                        .foregroundStyle(Color.coax)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Make it sound like you").font(.headline).foregroundStyle(.primary)
+                        Text("Optional · about 20 seconds").font(.footnote).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                }
+                .padding(14)
+                .background(Color.coaxSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("voiceQuizCard")
+            #endif
+        } bottom: {
+            Button("Start using Coax") { finish() }
+                .buttonStyle(PrimaryButton())
+        }
+        .sheet(isPresented: $showVoice) { VoiceProfileView() }
     }
 
     // MARK: Age screens (only when Apple's age range says so)
@@ -394,6 +454,57 @@ private struct Promise: View {
 // MARK: - Page frame
 
 /// A setup screen: top bar, scrolling content, one main button at the bottom.
+/// What happened after tapping Agree on the Photos screen.
+private struct PhotosResult: View {
+    var on: Bool
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: on ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                .foregroundStyle(on ? Color.coaxDone : Color.orange)
+                .accessibilityHidden(true)
+            Text(on ? "Photos is on" : "Photos is still off. You can turn it on on the next screen.")
+                .font(.subheadline.weight(.semibold))
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background((on ? Color.coaxDone : Color.orange).opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+private struct SetupStatus: View {
+    var title: String
+    var on: Bool
+    var body: some View {
+        HStack {
+            Text(title)
+            Spacer()
+            if on {
+                Label("On", systemImage: "checkmark").foregroundStyle(Color.coaxDone)
+            } else {
+                Text("Off · turn on in Settings").foregroundStyle(.secondary)
+            }
+        }
+        .font(.subheadline)
+        .padding(.vertical, 2)
+    }
+}
+
+private struct DoneMove: View {
+    var number: Int
+    var text: String
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("\(number)")
+                .font(.caption.bold())
+                .foregroundStyle(.white)
+                .frame(width: 24, height: 24)
+                .background(Color.coax, in: Circle())
+            Text(text).font(.body)
+        }
+    }
+}
+
 private struct SetupPage<Content: View, Bottom: View>: View {
     var step: Int
     var onBack: (() -> Void)?

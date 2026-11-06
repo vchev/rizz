@@ -9,12 +9,17 @@ struct KeyboardActions {
     var nextKeyboard: () -> Void
 }
 
-/// Direction A (Nov 5): the keyboard opens on your replies. One bar on top
-/// ([ABC] [Take a screenshot] [1·2·3 shots] [clipboard] [globe]), then three
-/// numbered reply cards with their mood, then the mood tags. Coax's own letter
-/// keys sit behind ABC: typing works without Full Access (App Review rule
-/// 4.4.1); replies need it, because without it iOS gives keyboards no
-/// clipboard and no internet.
+/// Option 1, "one step at a time" (Vanessa, Nov 6): every screen shows one
+/// obvious next step and every control has words on it.
+/// - Before replies: one big "Scan my last screenshot" button, "Long chat?
+///   Scan the last 1 2 3", and a "paste text you copied" link.
+/// - Replies: tapping a reply only picks it; Insert types it in, so a wrong tap
+///   costs nothing. After Insert a note says it's in your message; picking
+///   another reply and tapping Swap replaces it.
+/// - A slim header holds the globe (Apple's keyboard, for edits) and "Scan again".
+/// Coax's own letter keys only show without Full Access, so typing still works
+/// then (App Review rule 4.4.1); replies need it, because without it iOS gives
+/// keyboards no clipboard and no internet.
 struct KeyboardView: View {
     @ObservedObject var model: ReplyFlowModel
     @ObservedObject var state: KeyboardState
@@ -22,13 +27,15 @@ struct KeyboardView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            topBar
+            header
             Group {
                 switch state.panel {
                 case .keys:
                     LetterKeys(state: state, actions: actions)
                 case .replies:
-                    RepliesPanel(model: model, state: state, actions: actions)
+                    RepliesPanel(model: model, state: state, actions: actions,
+                                 scan: { start(actions.getRepliesFromScreenshots) },
+                                 paste: { start(actions.getReplies) })
                 case .review:
                     ChatReview(model: model) {
                         state.insertedID = nil
@@ -45,62 +52,67 @@ struct KeyboardView: View {
         .padding(.bottom, 4)
     }
 
-    private var topBar: some View {
-        HStack(spacing: 6) {
-            // ABC opens Coax's letter keys; on the keys it turns into a way back to replies.
-            Button {
-                state.panel = state.panel == .keys ? (state.hasFullAccess ? .replies : .fullAccessHelp) : .keys
-            } label: {
-                Group {
-                    if state.panel == .keys {
-                        Image(systemName: "text.bubble.fill")
-                    } else {
-                        Text("ABC")
-                    }
-                }
-                .font(.caption.weight(.bold))
-                .frame(width: 42, height: 34)
-                .background(Color.primary, in: Capsule())
-                .foregroundStyle(Color(.systemBackground))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(state.panel == .keys ? "Back to replies" : "Type with letters")
-
-            ReplyBarButton(title: "Take a screenshot", systemImage: "camera.viewfinder", prominent: true) {
-                start(actions.getRepliesFromScreenshots)
-            }
-            .disabled(model.isBusy)
-            .accessibilityLabel(state.screenshotCount == 1 ? "Reply to my last screenshot"
-                                                           : "Reply to my last \(state.screenshotCount) screenshots")
-            .accessibilityHint("Or take a new screenshot and Coax reads it by itself")
-            ShotCountButton(count: $state.screenshotCount)
-                .disabled(model.isBusy)
-            // Backup for when a screenshot can't be read: replies to whatever was copied.
-            Button {
-                start(actions.getReplies)
-            } label: {
-                Image(systemName: "doc.on.clipboard")
-                    .font(.footnote)
-                    .frame(width: 34, height: 34)
-                    .background(Color(.systemBackground), in: Circle())
+    /// Globe on the left (always: it's how you edit a reply on Apple's
+    /// keyboard), what this screen is for in the middle, one action on the right.
+    private var header: some View {
+        HStack(spacing: 8) {
+            Button(action: actions.nextKeyboard) {
+                Label("Keyboard", systemImage: "globe")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 9)
+                    .frame(height: 28)
+                    .background(Color(.systemBackground), in: Capsule())
                     .foregroundStyle(Color.primary)
             }
             .buttonStyle(.plain)
-            .disabled(model.isBusy)
-            .accessibilityLabel("Get replies to what I copied")
-            if state.showsGlobe {
-                Button(action: actions.nextKeyboard) {
-                    Image(systemName: "globe")
-                        .font(.footnote)
-                        .frame(width: 34, height: 34)
-                        .background(Color(.systemBackground), in: Circle())
-                        .foregroundStyle(Color.primary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Next keyboard")
-            }
+            .accessibilityLabel("Next keyboard")
+            .accessibilityHint("Switches to your usual keyboard, for edits")
+
+            Text(headerTitle)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            headerAction
         }
         .padding(.horizontal, 2)
+    }
+
+    private var headerTitle: String {
+        switch state.panel {
+        case .replies:
+            guard case .done = model.phase, !model.replies.isEmpty else { return "" }
+            return state.insertedID == nil ? "Pick a reply" : "Changed your mind?"
+        case .keys, .review, .fullAccessHelp:
+            return ""
+        }
+    }
+
+    @ViewBuilder private var headerAction: some View {
+        switch state.panel {
+        case .keys:
+            HeaderLink(title: "Get replies", systemImage: "sparkles") { state.panel = .fullAccessHelp }
+        case .fullAccessHelp:
+            HeaderLink(title: "Type", systemImage: "keyboard") { state.panel = .keys }
+        case .replies:
+            if showsScanAgain {
+                HeaderLink(title: "Scan again", systemImage: "arrow.clockwise") {
+                    start(actions.getRepliesFromScreenshots)
+                }
+                .accessibilityLabel(state.screenshotCount == 1 ? "Scan my last screenshot again"
+                                                               : "Scan my last \(state.screenshotCount) screenshots again")
+            }
+        case .review:
+            EmptyView()
+        }
+    }
+
+    private var showsScanAgain: Bool {
+        switch model.phase {
+        case .done, .failed: return true
+        case .waiting, .reading, .generating: return false
+        }
     }
 
     private func start(_ action: () -> Void) {
@@ -113,45 +125,17 @@ struct KeyboardView: View {
     }
 }
 
-/// How many recent screenshots to read (1, 2 or 3). One small button that
-/// cycles, so the 1·2·3 on the reply cards stays the only big set of numbers.
-private struct ShotCountButton: View {
-    @Binding var count: Int
-
-    var body: some View {
-        Button {
-            count = count % 3 + 1
-        } label: {
-            HStack(spacing: 1) {
-                Image(systemName: "photo.stack").imageScale(.small)
-                Text("\(count)")
-            }
-            .font(.caption.weight(.bold))
-            .frame(width: 40, height: 34)
-            .background(Color(.systemBackground), in: Capsule())
-            .foregroundStyle(Color.primary)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Read \(count) screenshot\(count == 1 ? "" : "s")")
-        .accessibilityHint("Tap to change how many recent screenshots Coax reads")
-    }
-}
-
-private struct ReplyBarButton: View {
+private struct HeaderLink: View {
     var title: String
     var systemImage: String
-    var prominent: Bool
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
-                .font(.footnote.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-                .frame(maxWidth: .infinity, minHeight: 34)
-                .background(prominent ? Color.coax : Color(.systemBackground), in: Capsule())
-                .foregroundStyle(prominent ? Color.white : Color.primary)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(Color.coax)
+                .frame(minHeight: 28)
         }
         .buttonStyle(.plain)
     }
@@ -163,27 +147,46 @@ private struct RepliesPanel: View {
     @ObservedObject var model: ReplyFlowModel
     @ObservedObject var state: KeyboardState
     var actions: KeyboardActions
+    var scan: () -> Void
+    var paste: () -> Void
 
     var body: some View {
         switch model.phase {
         case .waiting:
-            Waiting(watching: state.watching)
+            StartScreen(state: state, scan: scan, paste: paste)
         case .reading:
             Working(previews: model.previews,
                     text: state.autoRead ? "Reading your new screenshot…" : "Reading the chat…")
         case .generating:
             Working(previews: model.previews, text: "Writing replies…")
         case .failed(let reason):
-            Hint(systemImage: "exclamationmark.triangle", text: reason)
+            VStack(spacing: 10) {
+                Hint(systemImage: "exclamationmark.triangle", text: reason)
+                Button("Or paste text you copied", action: paste)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Color.coax)
+            }
         case .done:
+            let selected = selectedIndex
+            let alreadyIn = selected.map { state.insertedID == model.replies[$0].id } ?? false
             VStack(spacing: 6) {
+                if alreadyIn, let selected {
+                    InsertedNote(number: selected + 1)
+                }
                 ScrollView {
                     VStack(spacing: 6) {
                         ReadSummaryButton(model: model) { state.panel = .review }
                         ForEach(Array(model.replies.enumerated()), id: \.element.id) { index, reply in
-                            ReplyCard(number: index + 1, reply: reply, inserted: state.insertedID == reply.id) {
-                                actions.insert(reply)
+                            ReplyCard(number: index + 1, reply: reply,
+                                      selected: index == selected && !alreadyIn,
+                                      inserted: state.insertedID == reply.id) {
+                                state.selectedID = reply.id
                             }
+                        }
+                        if alreadyIn {
+                            Text("Tap another reply to swap it in")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
                         if model.service.isSample {
                             Text("Sample replies until the reply engine is connected")
@@ -193,18 +196,128 @@ private struct RepliesPanel: View {
                     }
                     .padding(.horizontal, 2)
                 }
+                if let selected, !alreadyIn {
+                    InsertButton(number: selected + 1, swapping: state.insertedID != nil) {
+                        actions.insert(model.replies[selected])
+                    }
+                }
                 MoodTagRow(model: model, background: Color(.systemBackground)) {
                     state.insertedID = nil
+                    state.selectedID = nil
                 }
             }
         }
     }
+
+    /// The picked reply; reply 1 until another is tapped.
+    private var selectedIndex: Int? {
+        guard !model.replies.isEmpty else { return nil }
+        return model.replies.firstIndex { $0.id == state.selectedID } ?? 0
+    }
 }
 
-/// A numbered reply with its mood, as in the direction A mockup.
+/// Before any replies: one big button, the screenshot count in plain words,
+/// and paste as a small backup.
+private struct StartScreen: View {
+    @ObservedObject var state: KeyboardState
+    var scan: () -> Void
+    var paste: () -> Void
+    @State private var dim = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Text("Screenshot the chat, or scan the last one")
+                .font(.callout.weight(.semibold))
+                .multilineTextAlignment(.center)
+            Button(action: scan) {
+                Label(state.screenshotCount == 1 ? "Scan my last screenshot" : "Scan my last \(state.screenshotCount) screenshots",
+                      systemImage: "camera.viewfinder")
+                    .font(.body.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, minHeight: 46)
+                    .background(Color.coax, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .foregroundStyle(Color.white)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Reads it on your iPhone and writes 3 replies")
+            HStack(spacing: 6) {
+                Text("Long chat? Scan the last").font(.caption).foregroundStyle(.secondary)
+                ForEach(1...3, id: \.self) { n in
+                    Button("\(n)") { state.screenshotCount = n }
+                        .font(.caption.weight(.bold))
+                        .frame(width: 28, height: 24)
+                        .background(n == state.screenshotCount ? Color.coax : Color(.secondarySystemBackground),
+                                    in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .foregroundStyle(n == state.screenshotCount ? Color.white : Color.primary)
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Scan the last \(n) screenshot\(n == 1 ? "" : "s")")
+                        .accessibilityAddTraits(n == state.screenshotCount ? .isSelected : [])
+                }
+            }
+            Button("Or paste text you copied", action: paste)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(Color.coax)
+                .accessibilityHint("Writes replies to a message you copied")
+            if state.watching {
+                HStack(spacing: 6) {
+                    Circle().fill(Color.coax).frame(width: 6, height: 6).opacity(dim ? 0.25 : 1)
+                    Text("Ready for your next screenshot").font(.caption2).foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+                .onAppear {
+                    guard !reduceMotion else { return }
+                    withAnimation(.easeInOut(duration: 0.8).repeatForever()) { dim = true }
+                }
+            }
+        }
+        .padding(12)
+        .background(Color(.systemBackground).opacity(0.6), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 2)
+    }
+}
+
+/// Shown after Insert, so it's clear the reply went in and what to do next.
+private struct InsertedNote: View {
+    var number: Int
+
+    var body: some View {
+        Label("Reply \(number) is in your message. Send it, or tap Keyboard to edit.", systemImage: "checkmark.circle.fill")
+            .font(.caption.weight(.semibold))
+            .frame(maxWidth: .infinity, minHeight: 30)
+            .padding(.horizontal, 8)
+            .background(Color.coax.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .foregroundStyle(Color.primary)
+            .padding(.horizontal, 2)
+    }
+}
+
+/// Puts the picked reply in the message box. Nothing is typed until this is tapped.
+private struct InsertButton: View {
+    var number: Int
+    var swapping: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(swapping ? "Swap in reply \(number)" : "Insert reply \(number)", systemImage: "arrow.up.message")
+                .font(.callout.weight(.bold))
+                .frame(maxWidth: .infinity, minHeight: 38)
+                .background(Color.coax, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .foregroundStyle(Color.white)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 2)
+        .accessibilityHint(swapping ? "Replaces the reply already in your message" : "Types it into the message box")
+    }
+}
+
+/// A numbered reply with its mood. Blue outline when picked, green check once inserted.
 private struct ReplyCard: View {
     var number: Int
     var reply: ReplySuggestion
+    var selected: Bool
     var inserted: Bool
     var action: () -> Void
 
@@ -238,44 +351,14 @@ private struct ReplyCard: View {
             .padding(.vertical, 9)
             .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(inserted ? Color.coaxDone : Color.clear, lineWidth: 1.5))
+                .stroke(selected ? Color.coax : (inserted ? Color.coaxDone : Color.clear), lineWidth: selected ? 2 : 1.5))
             .shadow(color: .black.opacity(0.06), radius: 2, x: 0, y: 1)
             .foregroundStyle(Color.primary)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(number). " + (reply.label.map { "\($0): \(reply.text)" } ?? reply.text))
-        .accessibilityHint("Types this reply into the message box")
-    }
-}
-
-/// Before the first screenshot: what to do, and that Coax is watching.
-private struct Waiting: View {
-    var watching: Bool
-    @State private var dim = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "camera.viewfinder").font(.title).foregroundStyle(Color.coax)
-            Text("Screenshot the chat. Your replies show up here.")
-                .font(.callout.weight(.semibold))
-                .multilineTextAlignment(.center)
-            if watching {
-                HStack(spacing: 6) {
-                    Circle().fill(Color.coax).frame(width: 6, height: 6).opacity(dim ? 0.25 : 1)
-                    Text("Ready for your next screenshot").font(.caption).foregroundStyle(.secondary)
-                }
-                .onAppear {
-                    guard !reduceMotion else { return }
-                    withAnimation(.easeInOut(duration: 0.8).repeatForever()) { dim = true }
-                }
-            } else {
-                Text("Or copy their message and tap the clipboard.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-        }
-        .padding(.horizontal, 12)
-        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityHint(inserted ? "In your message" : "Picks this reply. Then tap Insert")
     }
 }
 
@@ -381,10 +464,6 @@ private struct LetterKeys: View {
                     state.showingSymbols.toggle()
                 }
                 .frame(width: 50)
-                if state.showsGlobe {
-                    SystemKey(systemImage: "globe", action: actions.nextKeyboard)
-                        .frame(width: 44)
-                }
                 CharacterKey(label: "space") { actions.type(" ") }
                 SystemKey(text: "return") { actions.type("\n") }
                     .frame(width: 80)
