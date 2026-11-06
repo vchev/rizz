@@ -46,6 +46,25 @@ class BuildTest(unittest.TestCase):
         self.assertIn("https://example.com/guides/", (out / "sitemap.xml").read_text())
         self.assertNotIn("noindex", (out / "index.html").read_text())
 
+    def test_domain_build_has_link_previews_and_schema(self):
+        import re
+        build_site.build("example.com")
+        guide = next((build_site.OUT / "guides").glob("*/index.html")).read_text()
+        self.assertIn('<meta property="og:type" content="article">', guide)
+        self.assertIn('<meta name="twitter:card" content="summary">', guide)
+        data = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', guide).group(1))
+        self.assertEqual(data["@type"], "Article")
+        self.assertTrue(data["url"].startswith("https://example.com/guides/"))
+        self.assertLessEqual(len(data["description"]), 158)
+
+    def test_preview_build_has_no_share_tags(self):
+        build_site.build()
+        self.assertNotIn("og:title", (build_site.OUT / "index.html").read_text())
+
+    def test_short_cuts_at_word_break(self):
+        self.assertEqual(build_site.short("hello world again", 13), "hello world...")
+        self.assertEqual(build_site.short("tiny"), "tiny")
+
 
 class TryToolTest(unittest.TestCase):
     def setUp(self):
