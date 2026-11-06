@@ -53,7 +53,8 @@ struct ChatReview: View {
             Text(["Tap a message to switch who sent it", model.timing].compactMap { $0 }.joined(separator: " · "))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            if model.previews.count > 1 {
+            // Stays up (dimmed) while new replies load after a move.
+            if model.canReorderScreenshots || (model.isBusy && model.previews.count > 1) {
                 ScreenshotOrderStrip(model: model)
             }
             ScrollViewReader { proxy in
