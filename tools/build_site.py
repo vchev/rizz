@@ -1,7 +1,7 @@
 """Build the Coax guides site into public/ from site/*.md. Standard library only.
 
     python3 tools/build_site.py                          # preview build: noindex, no domain
-    python3 tools/build_site.py --domain getcoax.app --app-store "https://apps.apple.com/app/idNNN"
+    python3 tools/build_site.py --domain hicoax.com --app-store "https://apps.apple.com/app/idNNN"
 
 Until --domain is given, every page says noindex and robots.txt blocks crawlers, so Google
 doesn't index the temporary vercel.app address. site/drafts/ is never published (comparison
