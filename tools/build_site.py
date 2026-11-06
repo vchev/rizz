@@ -9,6 +9,7 @@ pages wait for verified competitor facts and legal review).
 """
 import argparse
 import html
+import json
 import re
 import shutil
 from pathlib import Path
@@ -79,6 +80,11 @@ def markdown(md):
     return "\n".join(out)
 
 
+def short(text, limit=155):
+    """Cut a search description at a word break, not mid-word."""
+    return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0].rstrip(",;:") + "..."
+
+
 def split_front(text):
     meta = {}
     if text.startswith("---"):
@@ -98,12 +104,26 @@ button{background:%s;color:#fff;border:0;padding:12px 20px;border-radius:22px;fo
 @media (prefers-color-scheme:dark){body{background:#000;color:#eee}td,th{border-color:#333}textarea{background:#111;color:#eee;border-color:#333}footer{color:#999}}""" % ((BLUE,) * 5)
 
 
-def page(title, body, desc, robots, canonical):
+def page(title, body, desc, robots, canonical, extra=""):
     return """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>%s</title><meta name="description" content="%s">%s%s<style>%s</style></head><body>
+<title>%s</title><meta name="description" content="%s">%s%s%s<style>%s</style></head><body>
 <header><a class="logo" href="/">Coax</a><a class="cta" href="/#get">Get Coax</a></header>
 <main>%s</main><footer>Coax writes dating replies that sound like you. Screenshots stay on your phone. No account. &middot; <a href="/guides/">All guides</a> &middot; <a href="/reply/">Free reply tool</a></footer>
-</body></html>""" % (html.escape(title), html.escape(desc), robots, canonical, CSS, body)
+</body></html>""" % (html.escape(title), html.escape(desc), robots, canonical, extra, CSS, body)
+
+
+def head_tags(domain, path, title, desc, schema):
+    """Link-preview (Open Graph / Twitter) tags and schema.org data, so shares show a card
+    and search engines and AI assistants can read what each page is."""
+    url = "https://%s%s" % (domain, path)
+    tags = "".join('<meta property="%s" content="%s">' % (k, html.escape(v)) for k, v in (
+        ("og:title", title), ("og:description", desc), ("og:url", url), ("og:site_name", "Coax"),
+        ("og:type", "article" if schema and schema.get("@type") == "Article" else "website")))
+    tags += '<meta name="twitter:card" content="summary">'
+    if schema:
+        data = dict({"@context": "https://schema.org", "url": url}, **schema)
+        tags += '<script type="application/ld+json">%s</script>' % json.dumps(data).replace("</", "<\\/")
+    return tags
 
 
 def build(domain=None, app_store=None):
@@ -114,22 +134,26 @@ def build(domain=None, app_store=None):
     store = app_store or "/#get"
     urls, guides = [], []
 
-    def write(path, title, body, desc):
+    def write(path, title, body, desc, schema=None):
         canonical = '<link rel="canonical" href="https://%s%s">' % (domain, path) if domain else ""
+        extra = head_tags(domain, path, title, desc, schema) if domain else ""
         body = re.sub(r"APPSTORE_LINK(\?ct=[\w-]+)?", lambda m: store + (m.group(1) or "") if app_store else store, body)
         target = OUT / path.strip("/") / "index.html" if path != "/" else OUT / "index.html"
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(page(title, body, desc, robots, canonical), encoding="utf-8")
+        target.write_text(page(title, body, desc, robots, canonical, extra), encoding="utf-8")
         urls.append(path)
 
     for f in sorted((SITE / "guides").glob("*.md")):
         meta, text = split_front(f.read_text(encoding="utf-8"))
         slug = meta["slug"]
         first = re.search(r"\*\*Short answer:\*\*\s*(.+)", text)
-        desc = re.sub(r"[*_`\[\]]", "", first.group(1))[:155] if first else meta["title"]
+        desc = short(re.sub(r"[*_`\[\]]", "", first.group(1))) if first else meta["title"]
         body = "<article><h1>%s</h1><p><small>Updated %s</small></p>%s</article>" % (
             html.escape(meta["title"]), meta.get("updated", ""), markdown(text).replace("<table>", '<div class="wrap"><table>').replace("</table>", "</table></div>"))
-        write("/guides/%s/" % slug, meta["title"] + " | Coax", body, desc)
+        write("/guides/%s/" % slug, meta["title"] + " | Coax", body, desc, {
+            "@type": "Article", "headline": meta["title"], "description": desc,
+            "dateModified": meta.get("updated", ""), "author": {"@type": "Organization", "name": "Coax"},
+            "publisher": {"@type": "Organization", "name": "Coax"}})
         guides.append((slug, meta["title"]))
 
     listing = "".join('<li><a href="/guides/%s/">%s</a></li>' % (s, html.escape(t)) for s, t in guides)
@@ -140,7 +164,8 @@ def build(domain=None, app_store=None):
           "Paste her last message and get a reply that sounds like a real person. 3 free replies a day.")
     home = HOME_HTML.replace("STORE", html.escape(store)).replace("GUIDES", listing)
     write("/", "Coax: dating replies that sound like you", home,
-          "Coax reads your dating chat from a screenshot and writes 3 replies in your own texting style. Screenshots stay on your phone. 3 days free, no card.")
+          "Coax reads your dating chat from a screenshot and writes 3 replies in your own texting style. Screenshots stay on your phone. 3 days free, no card.",
+          {"@type": "WebSite", "name": "Coax", "publisher": {"@type": "Organization", "name": "Coax"}})
     if domain:
         (OUT / "robots.txt").write_text("User-agent: *\nAllow: /\nSitemap: https://%s/sitemap.xml\n" % domain)
         (OUT / "sitemap.xml").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">%s</urlset>\n'
