@@ -5,8 +5,9 @@
                        "replying_to": "...",
                        "voice": {"length": 0.2, "caps": 0.1, "humour": 0.8, "emoji": 0.1,
                                  "forward": 0.5, "examples": ["..."]}}
-                      (reply_to, replying_to and voice are optional)
-    ->  200 {"replies": [{"text": "...", "label": "playful"}], "prompt_version": 9}   (label may be missing)
+                       "favorite_mood": "playful"}   (the mood the user picks most)
+                      (reply_to, replying_to, voice and favorite_mood are optional)
+    ->  200 {"replies": [{"text": "...", "label": "playful"}], "prompt_version": 10}   (label may be missing)
 
     GET  /api/reply   -> {"ok": true}   (health check, no model call)
 
@@ -51,6 +52,7 @@ def handle(body_bytes, token_header=None, call=None):
             call=call,
             replying_to=data.get("replying_to"),
             voice=data.get("voice"),
+            favorite_mood=data.get("favorite_mood"),
         )
     except reply.BadRequest as e:
         return 400, {"error": str(e)}

@@ -112,11 +112,14 @@ struct HTTPReplyService: ReplyService {
         var replyingTo: String?
         /// The user's voice profile (Sprint 3 preview). Left out when it's off.
         var voice: VoiceProfile.Payload? = nil
+        /// The mood the user picks most (counted on the phone). Left out until there's one.
+        var favoriteMood: String? = nil
 
         enum CodingKeys: String, CodingKey {
             case platform, n, tone, messages, voice
             case under18 = "under_18"
             case replyingTo = "replying_to"
+            case favoriteMood = "favorite_mood"
         }
     }
 
@@ -158,7 +161,8 @@ struct HTTPReplyService: ReplyService {
             RequestBody(platform: platform, n: AppConfig.repliesPerRequest, tone: tone,
                         under18: AgeSettings.wantsTeenReplies ? true : nil, messages: messages,
                         replyingTo: replyingTo,
-                        voice: VoiceSettings.voiceForRequest(learningFrom: messages)))
+                        voice: VoiceSettings.voiceForRequest(learningFrom: messages),
+                        favoriteMood: tone == nil ? HabitStore.current.favoriteMood : nil))
 
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {

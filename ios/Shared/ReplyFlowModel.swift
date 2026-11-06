@@ -63,6 +63,7 @@ final class ReplyFlowModel: ObservableObject {
     /// Keeps what was just read and joins it to the saved chat it belongs to.
     private func use(_ read: [ChatMessage]) {
         readCount = read.count
+        if !read.isEmpty { HabitStore.update { $0.reads += 1 } }
         guard let store, !read.isEmpty else {
             messages = read
             chatID = nil
@@ -274,6 +275,7 @@ final class ReplyFlowModel: ObservableObject {
             phase = .failed("Couldn't tell which messages are theirs. Tap a message to switch who said it, then tap Get new replies.")
             return
         }
+        let hadReplies = !replies.isEmpty
         phase = .generating
         self.tone = tone
         let started = Date()
@@ -282,6 +284,10 @@ final class ReplyFlowModel: ObservableObject {
             replies = try await service.suggestReplies(for: Array(messages.suffix(Self.maxMessagesSent)), platform: "imessage", tone: tone,
                                                        replyingTo: replyingTo)
             editedSinceReplies = false
+            HabitStore.update {
+                $0.replySets += 1
+                if hadReplies { $0.askedAgain += 1 }
+            }
             let replySeconds = Date().timeIntervalSince(started)
             timing = [readSeconds.map { "Read \(Self.seconds($0))" }, "replies \(Self.seconds(replySeconds))"]
                 .compactMap { $0 }.joined(separator: " · ")
@@ -289,6 +295,11 @@ final class ReplyFlowModel: ObservableObject {
         } catch {
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    /// The person typed in or copied this reply.
+    func recordPick(_ reply: ReplySuggestion) {
+        HabitStore.update { $0.pick(reply) }
     }
 
     private static func seconds(_ t: Double) -> String { String(format: "%.1fs", t) }

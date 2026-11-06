@@ -55,6 +55,7 @@ struct ReplyFlowView: View {
                 ForEach(model.replies) { reply in
                     Button {
                         UIPasteboard.general.string = reply.text
+                        if copiedID != reply.id { model.recordPick(reply) }
                         copiedID = reply.id
                     } label: {
                         HStack(alignment: .firstTextBaseline) {
