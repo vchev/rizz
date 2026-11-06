@@ -61,6 +61,27 @@ enum Transcript {
     /// `parts` is in the order the screenshots were taken. People scroll both
     /// ways between screenshots, so the reverse order is tried too. With no
     /// overlap either way, the order they were taken wins.
+    /// Moves screenshot `from` to position `to` and joins the chat again in that
+    /// order. A message the person switched to the other speaker (found in
+    /// `current` by its text) keeps the speaker they chose.
+    static func reorder(_ parts: [[ChatMessage]], from: Int, to: Int,
+                        keepingSpeakersOf current: [ChatMessage]) -> (parts: [[ChatMessage]], joined: [ChatMessage]) {
+        guard parts.indices.contains(from), parts.indices.contains(to) else {
+            return (parts, parts.reduce([ChatMessage]()) { append($1, to: $0) })
+        }
+        var chosen: [String: Speaker] = [:]
+        for message in current { chosen[normalized(message.text)] = message.speaker }
+        var moved = parts.map { part in
+            part.map { message -> ChatMessage in
+                var m = message
+                if let speaker = chosen[normalized(m.text)] { m.speaker = speaker }
+                return m
+            }
+        }
+        moved.insert(moved.remove(at: from), at: to)
+        return (moved, moved.reduce([ChatMessage]()) { append($1, to: $0) })
+    }
+
     /// What one screenshot tells us about its place in the chat.
     struct Clues {
         var first: Date?

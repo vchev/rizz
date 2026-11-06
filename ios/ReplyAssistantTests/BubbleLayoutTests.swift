@@ -272,6 +272,30 @@ final class ScreenshotTimeOrderTests: XCTestCase {
     }
 }
 
+final class ScreenshotReorderTests: XCTestCase {
+    private func m(_ s: Speaker, _ t: String) -> ChatMessage { ChatMessage(speaker: s, text: t) }
+
+    func testDraggingAScreenshotJoinsTheChatInTheNewOrder() {
+        let newer = [m(.them, "so friday?"), m(.you, "friday works")]
+        let older = [m(.them, "hey there"), m(.you, "hi!")]
+        let moved = Transcript.reorder([newer, older], from: 1, to: 0, keepingSpeakersOf: [])
+        XCTAssertEqual(moved.joined.map(\.text), ["hey there", "hi!", "so friday?", "friday works"])
+        XCTAssertEqual(moved.parts.map { $0.map(\.text) }, [["hey there", "hi!"], ["so friday?", "friday works"]])
+    }
+
+    func testSpeakersSwitchedByHandStaySwitched() {
+        let a = [m(.them, "so friday?")]
+        let b = [m(.them, "hey there")]
+        let moved = Transcript.reorder([a, b], from: 0, to: 1, keepingSpeakersOf: [m(.you, "hey there")])
+        XCTAssertEqual(moved.joined.map(\.speaker), [.you, .them])
+    }
+
+    func testThreeScreenshotsMiddleToFront() {
+        let moved = Transcript.reorder([[m(.them, "a")], [m(.you, "b")], [m(.them, "c")]], from: 2, to: 0, keepingSpeakersOf: [])
+        XCTAssertEqual(moved.joined.map(\.text), ["c", "a", "b"])
+    }
+}
+
 final class ReplySuggestionDecodingTests: XCTestCase {
     func testLabelIsOptional() throws {
         let json = #"[{"text": "dangerously confident tbh", "label": "playful"}, {"text": "coffee?"}]"#
