@@ -22,10 +22,13 @@ struct ScreenshotReader {
         var messages: [ChatMessage]
         /// What the user has started replying to, from the bar above the text box.
         var replyingTo: String?
+        /// The screenshot shows Coax's own screens (its app or keyboard), not a chat.
+        var isCoax = false
     }
 
     func readChat(_ image: UIImage) async throws -> Chat {
         let lines = try await recognizeLines(in: image)
+        if BubbleLayout.isCoaxScreen(lines) { return Chat(messages: [], replyingTo: nil, isCoax: true) }
         return Chat(messages: BubbleLayout.messages(from: lines), replyingTo: BubbleLayout.replyingTo(in: lines))
     }
 

@@ -133,6 +133,27 @@ final class BubbleLayoutTests: XCTestCase {
         XCTAssertEqual(messages.count, 2)
     }
 
+    func testScreenshotOfCoaxHomeIsNotAChat() {
+        // Vanessa's case: screenshots of Coax's own Home screen read as a "chat".
+        XCTAssertTrue(BubbleLayout.isCoaxScreen([
+            line("Here’s the move", x: 0.05, y: 0.30, w: 0.40),
+            line("Screenshot the chat", x: 0.60, y: 0.40, w: 0.35),
+            line("Get replies from a screenshot", x: 0.05, y: 0.60, w: 0.60),
+        ]))
+        XCTAssertTrue(BubbleLayout.isCoaxScreen([
+            line("Funny", x: 0.05, y: 0.80, w: 0.10), line("Flirty", x: 0.20, y: 0.80, w: 0.10),
+            line("Sweet", x: 0.35, y: 0.80, w: 0.10), line("Get new replies", x: 0.30, y: 0.88, w: 0.40),
+        ]))
+    }
+
+    func testChatThatMentionsAScreenshotIsStillAChat() {
+        XCTAssertFalse(BubbleLayout.isCoaxScreen([
+            line("lol screenshot the chat and send it to me", x: 0.08, y: 0.40, w: 0.60),
+            line("you're so funny", x: 0.60, y: 0.50, w: 0.30),
+            line("sweet", x: 0.08, y: 0.60, w: 0.10),
+        ]))
+    }
+
     func testOrderFollowsPositionNotInputOrder() {
         let messages = BubbleLayout.messages(from: [
             line("second", x: 0.70, y: 0.60, w: 0.20),

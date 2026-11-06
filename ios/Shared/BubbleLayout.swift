@@ -111,6 +111,29 @@ enum BubbleLayout {
         return keys.contains(raw.trimmingCharacters(in: .whitespaces).lowercased())
     }
 
+    /// Words only Coax's own screens show. A screenshot of the Coax app or keyboard
+    /// (say, taken to send feedback) is not a chat and must not be read as one.
+    static let coaxScreenPhrases = [
+        "here's the move", "get replies from a screenshot", "screenshot the chat", "coax does the rest",
+        "tap a message to switch who sent it", "get new replies", "scan the last", "scan again",
+        "tap one to put it in the message box", "tap another reply to swap it in", "ready for your next screenshot",
+        "wrong chat? start fresh", "start using coax", "add the coax keyboard", "know what to text back",
+        "recent chats", "or paste text you copied", "what i read", "see all replies", "tap a reply to copy it",
+        "your latest screenshot", "make it sound like you", "waiting for a screenshot", "writing replies",
+        "try it with an example chat", "free to start", "settings › coax", "allow full access",
+    ]
+    static let moodTags: Set<String> = ["funny", "flirty", "sweet", "chill", "bold", "shorter"]
+
+    /// Two or more Coax-only phrases (the row of mood tags counts as one) means a
+    /// screenshot of Coax. One alone could be a message that happens to say it.
+    static func isCoaxScreen(_ lines: [TextLine]) -> Bool {
+        let texts = lines.map { $0.text.lowercased().replacingOccurrences(of: "’", with: "'") }
+        var hits = Set(coaxScreenPhrases.filter { phrase in texts.contains { $0.contains(phrase) } })
+        let moods = Set(texts.map { $0.trimmingCharacters(in: .whitespaces) }.filter { moodTags.contains($0) })
+        if moods.count >= 3 { hits.insert("mood tags") }
+        return hits.count >= 2
+    }
+
     static func isCoaxBar(_ raw: String) -> Bool {
         let text = raw.trimmingCharacters(in: .whitespaces)
         return ["Last screenshot", "Last 2", "Last 3"].contains(text)
