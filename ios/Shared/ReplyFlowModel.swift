@@ -160,9 +160,14 @@ final class ReplyFlowModel: ObservableObject {
             let dates = shots.map(\.taken)
             replyingTo = chats.last(where: { $0.replyingTo != nil })?.replyingTo   // the newest bar wins
             readSeconds = Date().timeIntervalSince(started)
-            let kept = Transcript.sameChat(parts, taken: dates)
+            let sameChat = Transcript.sameChat(parts, taken: dates)
+            let clues = sameChat.map { i -> Transcript.Clues in
+                let times = chats[i].stamps.compactMap { Transcript.stampDate($0, taken: dates[i]) }
+                return Transcript.Clues(first: times.min(), last: times.max(), hasReceipt: chats[i].hasReceipt)
+            }
+            let kept = Transcript.chatOrder(sameChat.map { parts[$0] }, clues: clues).map { sameChat[$0] }
             previews = kept.map { shots[$0].image }
-            let all = Transcript.joinBestOrder(kept.map { parts[$0] })
+            let all = kept.map { parts[$0] }.reduce([ChatMessage]()) { Transcript.append($1, to: $0) }
             use(all)
             guard !all.isEmpty else {
                 phase = .failed("Couldn't find chat messages in your last screenshots. Screenshot the chat and try again.")

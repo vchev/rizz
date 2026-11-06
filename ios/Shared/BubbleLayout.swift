@@ -273,6 +273,28 @@ enum BubbleLayout {
         return looksLikeTime(lower)
     }
 
+    /// Clues to where a screenshot sits in the chat: its timestamps ("Today 9:41 PM",
+    /// top to bottom) and whether it shows a "Delivered" / "Read" / "Seen" note, which
+    /// only appears under the newest message.
+    static func timeClues(_ lines: [TextLine]) -> (stamps: [String], receipt: Bool) {
+        let shown = aboveTextBox(lines)
+            .filter { $0.box.minY >= topCutoff }
+            .sorted { $0.box.minY < $1.box.minY }
+            .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        var stamps: [String] = []
+        var receipt = false
+        for text in shown {
+            if ["delivered", "read", "seen"].contains(text) { receipt = true; continue }
+            if let prefix = ["read ", "seen ", "delivered "].first(where: { text.hasPrefix($0) }),
+               looksLikeTime(String(text.dropFirst(prefix.count))) {
+                receipt = true
+                continue
+            }
+            if looksLikeTime(text) { stamps.append(text) }
+        }
+        return (stamps, receipt)
+    }
+
     /// "9:41", "9:41 PM", "Today 9:41 PM", "Tue, Nov 3 at 9:41 PM" and similar.
     static func looksLikeTime(_ lower: String) -> Bool {
         let pattern = #"^((today|yesterday|mon|tue|wed|thu|fri|sat|sun)[a-z]*,?\s*)?([a-z]{3,9}\.?\s+\d{1,2},?\s*(\d{4})?\s*)?(at\s+)?\d{1,2}:\d{2}\s*(am|pm)?$"#

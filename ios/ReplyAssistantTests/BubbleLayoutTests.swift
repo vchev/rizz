@@ -216,6 +216,62 @@ final class ThreeScreenshotTests: XCTestCase {
     }
 }
 
+final class ScreenshotTimeOrderTests: XCTestCase {
+    private func m(_ s: Speaker, _ t: String) -> ChatMessage { ChatMessage(speaker: s, text: t) }
+    private var calendar: Calendar { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "UTC")!; return c }
+    /// Fri Nov 6, 2026, 18:00 UTC.
+    private var taken: Date { calendar.date(from: DateComponents(year: 2026, month: 11, day: 6, hour: 18))! }
+    private func at(_ day: Int, _ hour: Int, _ minute: Int = 0) -> Date {
+        calendar.date(from: DateComponents(year: 2026, month: 11, day: day, hour: hour, minute: minute))!
+    }
+
+    func testChatTimestampsAreRead() {
+        XCTAssertEqual(Transcript.stampDate("today 9:41 am", taken: taken, calendar: calendar), at(6, 9, 41))
+        XCTAssertEqual(Transcript.stampDate("9:41 pm", taken: taken, calendar: calendar), at(6, 21, 41))
+        XCTAssertEqual(Transcript.stampDate("yesterday 12:05 am", taken: taken, calendar: calendar), at(5, 0, 5))
+        XCTAssertEqual(Transcript.stampDate("tue 9:41 pm", taken: taken, calendar: calendar), at(3, 21, 41))
+        XCTAssertEqual(Transcript.stampDate("fri 8:00 am", taken: taken, calendar: calendar), at(6, 8).addingTimeInterval(-7 * 86_400))
+        XCTAssertEqual(Transcript.stampDate("tue, nov 3 at 9:41 pm", taken: taken, calendar: calendar), at(3, 21, 41))
+        XCTAssertEqual(Transcript.stampDate("nov 2, 2026 at 20:15", taken: taken, calendar: calendar), at(2, 20, 15))
+        XCTAssertNil(Transcript.stampDate("see you at the park", taken: taken, calendar: calendar))
+    }
+
+    func testTimestampsOrderScreenshotsThatDontOverlap() {
+        // Taken bottom of the chat first, then scrolled up a whole screen: no message repeats.
+        let newer = [m(.them, "so friday?"), m(.you, "friday works")]
+        let older = [m(.them, "hey there"), m(.you, "hi!")]
+        let order = Transcript.chatOrder([newer, older], clues: [
+            .init(first: at(6, 9), last: at(6, 9)), .init(first: at(5, 20), last: at(5, 20)),
+        ])
+        XCTAssertEqual(order, [1, 0])
+    }
+
+    func testDeliveredNoteMarksTheNewestScreenshot() {
+        let newer = [m(.them, "so friday?"), m(.you, "friday works")]
+        let older = [m(.them, "hey there"), m(.you, "hi!")]
+        let order = Transcript.chatOrder([newer, older], clues: [.init(hasReceipt: true), .init()])
+        XCTAssertEqual(order, [1, 0])
+    }
+
+    func testRepeatedMessagesStillWinAndNoCluesKeepsTakenOrder() {
+        let older = [m(.them, "a"), m(.you, "b")]
+        let newer = [m(.you, "b"), m(.them, "c")]
+        XCTAssertEqual(Transcript.chatOrder([newer, older], clues: [.init(), .init(hasReceipt: true)]), [1, 0])
+        XCTAssertEqual(Transcript.chatOrder([[m(.them, "x")], [m(.you, "y")]], clues: [.init(), .init()]), [0, 1])
+    }
+
+    func testTimestampsAndReceiptAreFoundOnScreen() {
+        func line(_ t: String, y: CGFloat) -> TextLine { TextLine(text: t, box: CGRect(x: 0.4, y: y, width: 0.2, height: 0.02)) }
+        let clues = BubbleLayout.timeClues([
+            line("9:41", y: 0.01),                 // the status bar clock: ignored
+            line("Today 9:41 PM", y: 0.20),
+            line("Read 9:45 PM", y: 0.60),
+        ])
+        XCTAssertEqual(clues.stamps, ["today 9:41 pm"])
+        XCTAssertTrue(clues.receipt)
+    }
+}
+
 final class ReplySuggestionDecodingTests: XCTestCase {
     func testLabelIsOptional() throws {
         let json = #"[{"text": "dangerously confident tbh", "label": "playful"}, {"text": "coffee?"}]"#
