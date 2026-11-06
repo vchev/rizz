@@ -24,12 +24,18 @@ struct ScreenshotReader {
         var replyingTo: String?
         /// The screenshot shows Coax's own screens (its app or keyboard), not a chat.
         var isCoax = false
+        /// Timestamps shown in the chat, top to bottom ("today 9:41 pm").
+        var stamps: [String] = []
+        /// Shows "Delivered" / "Read" / "Seen", so it holds the newest messages.
+        var hasReceipt = false
     }
 
     func readChat(_ image: UIImage) async throws -> Chat {
         let lines = try await recognizeLines(in: image)
         if BubbleLayout.isCoaxScreen(lines) { return Chat(messages: [], replyingTo: nil, isCoax: true) }
-        return Chat(messages: BubbleLayout.messages(from: lines), replyingTo: BubbleLayout.replyingTo(in: lines))
+        let clues = BubbleLayout.timeClues(lines)
+        return Chat(messages: BubbleLayout.messages(from: lines), replyingTo: BubbleLayout.replyingTo(in: lines),
+                    stamps: clues.stamps, hasReceipt: clues.receipt)
     }
 
     /// Screenshots are downscaled to this width first. Text stays readable and

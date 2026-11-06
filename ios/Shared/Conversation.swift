@@ -61,6 +61,93 @@ enum Transcript {
     /// `parts` is in the order the screenshots were taken. People scroll both
     /// ways between screenshots, so the reverse order is tried too. With no
     /// overlap either way, the order they were taken wins.
+    /// What one screenshot tells us about its place in the chat.
+    struct Clues {
+        var first: Date?
+        var last: Date?
+        var hasReceipt = false
+    }
+
+    /// Puts screenshots in chat order, whatever order they were taken in (people
+    /// often screenshot the bottom first, then scroll up). Tried in this order:
+    /// messages repeated across screenshots, then the chat's own timestamps, then
+    /// the "Delivered"/"Read" note under the newest message. With no clue at all,
+    /// the order they were taken in stands. Returns indexes into `parts`.
+    static func chatOrder(_ parts: [[ChatMessage]], clues: [Clues]) -> [Int] {
+        let n = parts.count
+        guard n > 1, n <= 4, clues.count == n else { return Array(0..<n) }
+        func permutations(_ items: [Int]) -> [[Int]] {
+            guard items.count > 1 else { return [items] }
+            return items.indices.flatMap { i -> [[Int]] in
+                var rest = items
+                let head = rest.remove(at: i)
+                return permutations(rest).map { [head] + $0 }
+            }
+        }
+        func score(_ order: [Int]) -> (Int, Int, Int) {
+            let overlaps = zip(order, order.dropFirst()).reduce(0) { $0 + overlap(parts[$1.0], then: parts[$1.1]) }
+            var times = 0
+            for a in 0..<order.count {
+                for b in (a + 1)..<order.count {
+                    let early = clues[order[a]], late = clues[order[b]]
+                    guard let earlyLast = early.last, let earlyFirst = early.first,
+                          let lateFirst = late.first, let lateLast = late.last else { continue }
+                    if earlyLast <= lateFirst && earlyFirst < lateLast { times += 1 }
+                    if earlyFirst > lateLast { times -= 1 }
+                }
+            }
+            let receipt = clues[order.last!].hasReceipt ? 1 : (order.dropLast().contains { clues[$0].hasReceipt } ? -1 : 0)
+            return (overlaps, times, receipt)
+        }
+        var best = Array(0..<n)
+        var bestScore = score(best)
+        for order in permutations(Array(0..<n)) {
+            let s = score(order)
+            if s > bestScore { best = order; bestScore = s }
+        }
+        return best
+    }
+
+    /// Reads a chat timestamp ("today 9:41 pm", "yesterday 21:05", "tue 9:41 pm",
+    /// "tue, nov 3 at 9:41 pm", "9:41 pm") as a date, given when the screenshot was taken.
+    static func stampDate(_ raw: String, taken: Date, calendar: Calendar = .current) -> Date? {
+        let text = raw.lowercased()
+        guard let time = text.range(of: #"(\d{1,2}):(\d{2})\s*(am|pm)?$"#, options: .regularExpression) else { return nil }
+        let clock = String(text[time])
+        let digits = clock.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
+        guard digits.count >= 2, var hour = digits.first, digits[1] < 60 else { return nil }
+        if clock.hasSuffix("pm") && hour < 12 { hour += 12 }
+        if clock.hasSuffix("am") && hour == 12 { hour = 0 }
+        guard hour < 24 else { return nil }
+        let head = String(text[..<time.lowerBound])
+        let today = calendar.startOfDay(for: taken)
+        var day = today
+        let months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+        let weekdays = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+        let words = head.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
+        if let m = words.firstIndex(where: { w in months.contains { w.hasPrefix($0) } }),
+           let month = months.firstIndex(where: { words[m].hasPrefix($0) }),
+           m + 1 < words.count, let dayNumber = Int(words[m + 1]) {
+            var parts = calendar.dateComponents([.year], from: today)
+            if m + 2 < words.count, let year = Int(words[m + 2]), year > 1900 { parts.year = year }
+            parts.month = month + 1
+            parts.day = dayNumber
+            guard var date = calendar.date(from: parts) else { return nil }
+            if date > today, let lastYear = calendar.date(byAdding: .year, value: -1, to: date) { date = lastYear }
+            day = date
+        } else if words.contains("yesterday") {
+            day = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+        } else if let w = words.first(where: { w in weekdays.contains { w.hasPrefix($0) } }),
+                  let weekday = weekdays.firstIndex(where: { w.hasPrefix($0) }) {
+            // A weekday name means within the last week, before today.
+            let todayWeekday = calendar.component(.weekday, from: today) - 1
+            var back = (todayWeekday - weekday + 7) % 7
+            if back == 0 { back = 7 }
+            day = calendar.date(byAdding: .day, value: -back, to: today) ?? today
+        }
+        return calendar.date(bySettingHour: hour, minute: digits[1], second: 0, of: day)
+    }
+
     static func joinBestOrder(_ parts: [[ChatMessage]]) -> [ChatMessage] {
         func totalOverlap(_ ordered: [[ChatMessage]]) -> Int {
             zip(ordered, ordered.dropFirst()).reduce(0) { $0 + overlap($1.0, then: $1.1) }
