@@ -9,6 +9,7 @@ struct RepliesView: View {
     @ObservedObject var model: ReplyFlowModel
     @State private var copiedID: UUID?
     @State private var showFix = false
+    @State private var showPaywall = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -51,6 +52,17 @@ struct RepliesView: View {
             }
             .presentationDetents([.large])
         }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(context: .chat, lock: model.lock) {
+                Task { await model.generate(tone: model.tone) }
+            }
+            .presentationDetents([.fraction(0.82), .large])
+            .presentationDragIndicator(.visible)
+        }
+        .onChange(of: model.lock) { _, lock in
+            if lock != nil { showPaywall = true }
+        }
+        .onAppear { if model.lock != nil { showPaywall = true } }
         .animation(.default, value: model.replies)
         .animation(.default, value: copiedID)
     }
@@ -83,9 +95,13 @@ struct RepliesView: View {
         case .generating:
             Working(text: "Writing replies…")
         case .failed(let reason):
-            Label(reason, systemImage: "exclamationmark.triangle")
+            Label(model.lock == nil ? reason : "Your free replies are used up for now.", systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.orange)
-            if !model.messages.isEmpty {
+            if model.lock != nil {
+                Button("See plans") { showPaywall = true }
+                    .buttonStyle(PrimaryButton())
+                    .accessibilityIdentifier("seePlans")
+            } else if !model.messages.isEmpty {
                 Button("Try again") { Task { await model.generate() } }
                     .buttonStyle(SecondaryButton())
             }
