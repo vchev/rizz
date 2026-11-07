@@ -46,11 +46,15 @@ struct GetCoaxRepliesIntent: AppIntent {
             messages = Array(store.remember(messages).messages.suffix(ReplyFlowModel.maxMessagesSent))
         }
 
+        // The free tier (paywall): a used-up phone gets a plain message instead of replies.
+        if let lock = await AccessStore.check().lock { throw PaywallLockError(lock: lock) }
+
         let replies = try await ReplyServices.makeDefault()
             .suggestReplies(for: messages, platform: "imessage", tone: nil, replyingTo: replyingTo)
         guard let best = replies.first else { throw NothingToReadError() }
 
         // Best reply on the clipboard, and all of them waiting in the Coax keyboard.
+        AccessStore.recordNewChat()
         await PendingReplies.publish(messages: messages, replies: replies, readCount: readCount)
 
         let summary = "\(replies.count) replies are waiting in the Coax keyboard. Tap the message box to pick one."
@@ -65,4 +69,10 @@ struct CoaxShortcuts: AppShortcutsProvider {
                     shortTitle: "Get Replies",
                     systemImageName: "sparkles")
     }
+}
+
+/// The Back Tap shortcut says this when the free tier is used up.
+struct PaywallLockError: Error, CustomLocalizedStringResourceConvertible {
+    let lock: AccessLock
+    var localizedStringResource: LocalizedStringResource { LocalizedStringResource(stringLiteral: lock.message) }
 }

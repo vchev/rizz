@@ -108,7 +108,7 @@ def page(title, body, desc, robots, canonical, extra=""):
     return """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>%s</title><meta name="description" content="%s">%s%s%s<style>%s</style></head><body>
 <header><a class="logo" href="/">Coax</a><a class="cta" href="/#get">Get Coax</a></header>
-<main>%s</main><footer>Coax writes dating replies that sound like you. Screenshots stay on your phone. No account. &middot; <a href="/guides/">All guides</a> &middot; <a href="/reply/">Free reply tool</a></footer>
+<main>%s</main><footer>Coax writes dating replies that sound like you. Screenshots stay on your phone. No account. &middot; <a href="/guides/">All guides</a> &middot; <a href="/reply/">Free reply tool</a> &middot; <a href="/privacy/">Privacy</a> &middot; <a href="/terms/">Terms</a></footer>
 </body></html>""" % (html.escape(title), html.escape(desc), robots, canonical, extra, CSS, body)
 
 
@@ -162,6 +162,10 @@ def build(domain=None, app_store=None):
           "Short answers to the dating texts everyone gets stuck on: wyd, left on read, asking her out, and more.")
     write("/reply/", "Free AI reply generator for dating apps | Coax", TOOL_HTML,
           "Paste her last message and get a reply that sounds like a real person. 3 free replies a day.")
+    write("/privacy/", "Privacy policy | Coax", PRIVACY_HTML,
+          "Coax has no account, no ads and no analytics. Screenshots are read on your phone; only the chat text goes out, to write replies, and nobody keeps it.")
+    write("/terms/", "Terms of use | Coax", TERMS_HTML,
+          "The terms for using Coax and its subscription.")
     home = HOME_HTML.replace("STORE", html.escape(store)).replace("GUIDES", listing)
     write("/", "Coax: dating replies that sound like you", home,
           "Coax reads your dating chat from a screenshot and writes 3 replies in your own texting style. Screenshots stay on your phone. 3 days free, no card.",
@@ -197,6 +201,49 @@ const d=await r.json();out.innerHTML='';if(d.reply){const b=document.createEleme
 const s=document.createElement('p');s.textContent=d.left_today+' free replies left today.';out.appendChild(s)}else{out.textContent=d.error||'Something went wrong.'}}
 catch(e){out.textContent='Something went wrong. Try again.'}};
 </script>"""
+
+
+POLICY_DATE = "November 7, 2026"
+
+PRIVACY_HTML = """<article><h1>Privacy policy</h1><p><small>Effective """ + POLICY_DATE + """</small></p>
+<p><strong>The short version:</strong> Coax has no account, no ads, no analytics and no tracking. Your screenshots are read on your phone and never uploaded. To write replies, the text of the chat goes to our server and our AI provider, and neither of them keeps it.</p>
+<h2>What stays on your phone</h2>
+<ul><li>Your screenshots. Coax reads the text in them on your iPhone (Apple's on-device text recognition). The images never leave your phone.</li>
+<li>The chats Coax has read, your texting style (quiz answers and what Coax learned from your own messages), your settings, and simple counts such as how many replies you picked. These are stored in the app on your phone and included in your iPhone backup. Deleting the app deletes them.</li></ul>
+<h2>What leaves your phone, and why</h2>
+<p>When you ask for replies, Coax sends: the text of the chat (up to the last 60 messages, marked as yours or theirs), which app it came from, the mood you picked, anything you typed into "Tell Coax what to say", your texting-style settings with a few of your own recent texts as examples, and whether you are under 18 (so replies stay age-appropriate).</p>
+<p>This goes over an encrypted connection to our server, which passes it to our AI provider, Anthropic (the Claude API), to write the replies. The replies come back to your phone. Our server does not write the chat to disk or to logs. Anthropic processes it under a zero data retention agreement: it is not stored after the reply is written and is never used to train AI models.</p>
+<p>Our host (Vercel) keeps standard technical logs, such as IP address and time of a request, for a short period to run and secure the service. These logs never contain your chats.</p>
+<h2>What we don't do</h2>
+<ul><li>No account, name, email or phone number is needed.</li><li>No advertising, no ad tracking and no selling or sharing of personal data.</li><li>No analytics or third-party SDKs in the app.</li></ul>
+<h2>Purchases</h2>
+<p>Subscriptions are handled by Apple. We never see your payment details. Coax asks Apple only whether your subscription is active.</p>
+<h2>The free reply tool on this website</h2>
+<p>What you paste is sent to our AI provider to write one reply and is not stored. To limit free use, we keep a one-way hash of your IP address in memory for the day; it is never written to disk.</p>
+<h2>Ages</h2>
+<p>Coax is for people 16 and older. Users aged 16 and 17 get a stricter mode: no flirting about bodies, nothing sexual, no alcohol or drugs, and no plans to meet somewhere private.</p>
+<h2>Other people's messages</h2>
+<p>Chats include messages from the people you talk to. Coax uses them only to write your reply, keeps them only on your phone, and sends them only for that request.</p>
+<h2>Your choices</h2>
+<p>Turn off texting-style learning or reset it in the app's Settings. Delete the app to remove everything Coax stored. Because we don't keep your data on our servers, there is nothing else for us to delete; if you have a question or request, email <a href="mailto:press@hicoax.com">press@hicoax.com</a>.</p>
+<h2>Changes</h2>
+<p>If this policy changes, we'll update the date above and, for important changes, tell you in the app.</p></article>"""
+
+TERMS_HTML = """<article><h1>Terms of use</h1><p><small>Effective """ + POLICY_DATE + """</small></p>
+<p>These terms apply on top of Apple's <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/">Standard End User License Agreement</a>, which covers your use of the Coax app.</p>
+<h2>Who can use Coax</h2><p>You must be 16 or older. If you are 16 or 17, a parent or guardian must agree to these terms.</p>
+<h2>Subscription</h2>
+<ul><li>Coax is free for your first 3 days with no card. After that, replies need a subscription: $4.99 per week or $99 per year (prices may differ by country and are shown before you buy).</li>
+<li>A new subscription starts with a 7-day free trial when you're eligible. Payment is charged to your Apple ID when the trial ends.</li>
+<li>Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel any time in Settings &gt; your name &gt; Subscriptions.</li>
+<li>Refunds are handled by Apple.</li></ul>
+<h2>Using replies</h2>
+<p>Coax suggests messages; you decide what to send. Suggestions come from AI and can be wrong or not fit your situation. Read them before sending. You're responsible for what you send.</p>
+<p>Don't use Coax to harass, threaten, deceive or pressure anyone, to send sexual content involving minors, or for anything illegal. Don't try to break, overload or copy the service.</p>
+<h2>No guarantees</h2>
+<p>Coax is provided as is. We can't promise any result in your conversations or that the service is always available. To the extent the law allows, our liability is limited to what you paid for Coax in the last 12 months.</p>
+<h2>Changes and contact</h2>
+<p>We may update these terms; the date above shows the latest version. Questions: <a href="mailto:press@hicoax.com">press@hicoax.com</a>.</p></article>"""
 
 
 if __name__ == "__main__":

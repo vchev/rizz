@@ -38,6 +38,13 @@ final class ReplyFlowModel: ObservableObject {
     private var readSeconds: Double?
     /// The message the user started a quoted reply to (Bumble's bar above the text box).
     var replyingTo: String?
+    /// Set when the free tier is used up: the paywall shows instead of replies.
+    /// `phase` is also `.failed(lock.message)`, for screens that don't show the paywall.
+    @Published var lock: AccessLock?
+    /// The next reply set is for a newly read chat (counts toward the free tier).
+    private var newChatPending = false
+    /// The made-up example chat is showing (always free).
+    private var showingExample = false
 
     let service: ReplyService
     private let reader = ScreenshotReader()
@@ -68,6 +75,8 @@ final class ReplyFlowModel: ObservableObject {
     /// Keeps what was just read and joins it to the saved chat it belongs to.
     private func use(_ read: [ChatMessage]) {
         readCount = read.count
+        newChatPending = !read.isEmpty
+        showingExample = false
         if !read.isEmpty { HabitStore.update { $0.reads += 1 } }
         guard let store, !read.isEmpty else {
             messages = read
@@ -245,6 +254,8 @@ final class ReplyFlowModel: ObservableObject {
         replies = []
         messages = [ChatMessage(speaker: .them, text: lines.joined(separator: " "))]
         readCount = 1
+        newChatPending = true
+        showingExample = false
         chatID = nil
         latestStart = nil
         replyingTo = nil
@@ -261,6 +272,8 @@ final class ReplyFlowModel: ObservableObject {
         latestStart = saved.latest?.lowerBound
         replyingTo = nil
         editedSinceReplies = false
+        newChatPending = false
+        showingExample = false
         await generate()
     }
 
@@ -274,6 +287,8 @@ final class ReplyFlowModel: ObservableObject {
         chatID = nil
         latestStart = nil
         replyingTo = nil
+        newChatPending = false
+        showingExample = true
         await generate()
     }
 
@@ -283,6 +298,16 @@ final class ReplyFlowModel: ObservableObject {
             return
         }
         let hadReplies = !replies.isEmpty
+        if !showingExample {
+            let access = await AccessStore.check()
+            // Asking again on a chat already read stays free in the daily-limit mode.
+            if let lock = access.lock, newChatPending || lock == .freeDaysOver {
+                self.lock = lock
+                phase = .failed(lock.message)
+                return
+            }
+        }
+        lock = nil
         phase = .generating
         self.tone = tone
         let started = Date()
@@ -292,6 +317,10 @@ final class ReplyFlowModel: ObservableObject {
             replies = try await service.suggestReplies(for: Array(messages.suffix(Self.maxMessagesSent)), platform: "imessage", tone: tone,
                                                        replyingTo: replyingTo, intent: wanted.isEmpty ? nil : wanted)
             editedSinceReplies = false
+            if newChatPending && !showingExample {
+                AccessStore.recordNewChat()
+                newChatPending = false
+            }
             HabitStore.update {
                 $0.replySets += 1
                 if hadReplies { $0.askedAgain += 1 }
@@ -357,5 +386,8 @@ final class ReplyFlowModel: ObservableObject {
         latestStart = nil
         replyingTo = nil
         editedSinceReplies = false
+        lock = nil
+        newChatPending = false
+        showingExample = false
     }
 }

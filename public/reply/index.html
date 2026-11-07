@@ -21,5 +21,5 @@ try{const r=await fetch('/api/try_tool',{method:'POST',headers:{'Content-Type':'
 const d=await r.json();out.innerHTML='';if(d.reply){const b=document.createElement('div');b.className='bubble';b.textContent=d.reply;out.appendChild(b);
 const s=document.createElement('p');s.textContent=d.left_today+' free replies left today.';out.appendChild(s)}else{out.textContent=d.error||'Something went wrong.'}}
 catch(e){out.textContent='Something went wrong. Try again.'}};
-</script></main><footer>Coax writes dating replies that sound like you. Screenshots stay on your phone. No account. &middot; <a href="/guides/">All guides</a> &middot; <a href="/reply/">Free reply tool</a></footer>
+</script></main><footer>Coax writes dating replies that sound like you. Screenshots stay on your phone. No account. &middot; <a href="/guides/">All guides</a> &middot; <a href="/reply/">Free reply tool</a> &middot; <a href="/privacy/">Privacy</a> &middot; <a href="/terms/">Terms</a></footer>
 </body></html>

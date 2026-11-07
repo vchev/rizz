@@ -14,6 +14,8 @@ struct ReplyAssistantApp: App {
             AgeSettings.onboarded = true
         }
         _onboarded = State(initialValue: AgeSettings.onboarded && AgeSettings.ageGroup != .under16)
+        // The subscription: prices, current status, renewals (StoreKit 2).
+        Task { @MainActor in Purchases.shared.start() }
     }
 
     var body: some Scene {

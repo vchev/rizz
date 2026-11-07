@@ -73,3 +73,16 @@ ruby ios/generate_project.rb
 ```
 
 GitHub Actions (`.github/workflows/ios-build.yml`) builds the app and runs the tests on every push that touches `ios/`.
+
+## For Claude: the paywall (subscription)
+
+- Rules live in `Shared/Access.swift`: mode A (launch default) = 3 free days from the first real
+  chat, then subscribe; mode B = 5 free new chats a day. `AccessPolicy.abTestOn` turns the A/B split on.
+- Buying and restoring: `ReplyAssistant/Purchases.swift` (StoreKit 2). Products
+  `com.vchev.coax.weekly` ($4.99/week) and `com.vchev.coax.yearly` ($99/year), each with a 7-day
+  free trial as the introductory offer.
+- Running from Xcode uses `ios/Coax.storekit` (set in the shared scheme), so the paywall works
+  without App Store Connect. For TestFlight and the App Store, create the same two products in
+  App Store Connect (one subscription group, "Coax").
+- Until the App Group exists (paid developer account), the app, keyboard and Messages app keep
+  separate free-tier counters; the subscription itself is read from Apple in each.

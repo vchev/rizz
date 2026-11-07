@@ -35,6 +35,7 @@ shared_refs = swift_files('Shared').map { |f| shared_group.new_file(File.basenam
 app_refs = swift_files('ReplyAssistant').map { |f| app_group.new_file(File.basename(f)) }
 app_group.new_file('Info.plist')
 config_ref = project.main_group.new_file('Config.xcconfig')
+project.main_group.new_file('Coax.storekit')
 project.build_configurations.each { |c| c.base_configuration_reference = config_ref }
 assets_ref = app_group.new_file('Assets.xcassets')
 ext_refs = swift_files('ShareExtension').map { |f| ext_group.new_file(File.basename(f)) }
@@ -144,7 +145,7 @@ end
 
 # Unit tests for the pure layout logic (no app host needed)
 tests = project.new_target(:unit_test_bundle, 'ReplyAssistantTests', :ios, IOS_VERSION)
-layout_logic = shared_refs.select { |r| %w[BubbleLayout.swift Conversation.swift ScreenshotReader.swift ChatStore.swift AgeSettings.swift VoiceProfile.swift ReplyService.swift].include?(r.path) }
+layout_logic = shared_refs.select { |r| %w[BubbleLayout.swift Conversation.swift ScreenshotReader.swift ChatStore.swift AgeSettings.swift VoiceProfile.swift ReplyService.swift Access.swift].include?(r.path) }
 tests.add_file_references(layout_logic + test_refs)
 tests.build_configurations.each do |c|
   c.build_settings.merge!(common)
@@ -175,6 +176,10 @@ project.save
 scheme = Xcodeproj::XCScheme.new
 scheme.configure_with_targets(app, tests, launch_target: true)
 scheme.add_test_target(ui_tests)
+# Running from Xcode sells the subscription from ios/Coax.storekit (no App Store Connect needed).
+storekit = REXML::Element.new('StoreKitConfigurationFileReference')
+storekit.add_attribute('identifier', '../../Coax.storekit')
+scheme.launch_action.xml_element.add_element(storekit)
 scheme.save_as(PROJECT_PATH, 'ReplyAssistant', true)
 
 puts "Wrote #{PROJECT_PATH}"

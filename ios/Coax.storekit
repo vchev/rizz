@@ -1,0 +1,95 @@
+{
+  "identifier" : "C0A8A001",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_compatibilityTimeRate" : {
+      "3" : 6
+    },
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "C0A8A100",
+      "localizations" : [
+
+      ],
+      "name" : "Coax",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "C0A8A101",
+          "introductoryOffer" : {
+            "internalID" : "C0A8A111",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlimited replies that sound like you.",
+              "displayName" : "Coax Weekly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.vchev.coax.weekly",
+          "recurringSubscriptionPeriod" : "P1W",
+          "referenceName" : "Coax Weekly",
+          "subscriptionGroupID" : "C0A8A100",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "99.00",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "C0A8A102",
+          "introductoryOffer" : {
+            "internalID" : "C0A8A112",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlimited replies that sound like you, for a year.",
+              "displayName" : "Coax Yearly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.vchev.coax.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Coax Yearly",
+          "subscriptionGroupID" : "C0A8A100",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
