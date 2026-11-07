@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// "Your texting style" (Sprint 3 preview): a 5-slider quiz, then a style card
+/// "Your texting style" (Sprint 3 preview): a one-question-per-screen quiz, then a style card
 /// that keeps improving from the user's own messages in their screenshots.
 /// Reached from the main screen in test builds only.
 struct VoiceProfileView: View {
@@ -11,6 +11,7 @@ struct VoiceProfileView: View {
         let saved = VoiceSettings.profile.quiz
         return saved.isEmpty ? Dictionary(uniqueKeysWithValues: VoiceTrait.allCases.map { ($0.rawValue, 0.5) }) : saved
     }()
+    @State private var step = 0
     @State private var enabled = VoiceSettings.isEnabled
     @State private var learning = VoiceSettings.isLearning
 
@@ -32,51 +33,124 @@ struct VoiceProfileView: View {
 
     // MARK: Quiz
 
+    /// One question per screen with a progress bar; the style card is the result.
     private var quiz: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("How do you text?").font(.title.bold())
-                    Text("Slide each one. Your best guess is fine: Coax checks it against the chats you screenshot and fixes it over time.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+        let traits = VoiceTrait.allCases
+        let trait = traits[min(step, traits.count - 1)]
+        let isLast = step >= traits.count - 1
+        return VStack(alignment: .leading, spacing: 18) {
+            ProgressView(value: Double(step + 1), total: Double(traits.count))
+                .tint(Color.coax)
+            HStack {
+                Text("Question \(step + 1) of \(traits.count)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if step > 0 {
+                    Button("Back") { withAnimation { step -= 1 } }
                 }
-                VStack(spacing: 24) {
-                    ForEach(VoiceTrait.allCases) { trait in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(trait.question).font(.headline)
-                            Slider(value: binding(trait), in: 0...1)
-                                .accessibilityLabel(trait.question)
-                                .accessibilityValue(describe(trait, answers[trait.rawValue] ?? 0.5))
-                            HStack {
-                                Text(trait.ends.low)
-                                Spacer()
-                                Text(trait.ends.high)
-                            }
-                            .font(.footnote)
+            }
+            Text(step == 0 ? "How do you text? Coax keeps learning from the screenshots you take." : " ")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+            Text(trait.question)
+                .font(.title2.bold())
+                .fixedSize(horizontal: false, vertical: true)
+                .id(trait)
+                .transition(.opacity)
+            VStack(spacing: 8) {
+                Slider(value: binding(trait), in: 0...1)
+                    .tint(Color.coax)
+                    .accessibilityLabel(trait.question)
+                    .accessibilityValue(describe(trait, answers[trait.rawValue] ?? 0.5))
+                HStack {
+                    Text(trait.ends.low)
+                    Spacer()
+                    Text(trait.ends.high)
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            .padding(18)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            Spacer(minLength: 0)
+            Button {
+                if isLast { finishQuiz() } else { withAnimation { step += 1 } }
+            } label: {
+                Text(isLast ? "See my style" : "Next").font(.headline).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.coax)
+            .controlSize(.large)
+            .accessibilityIdentifier("voiceQuizNext")
+        }
+        .padding(22)
+    }
+
+    private func finishQuiz() {
+        var updated = VoiceSettings.profile
+        updated.quiz = answers
+        updated.trustQuiz = false
+        save(updated)
+        VoiceSettings.isEnabled = true
+        enabled = true
+        step = 0
+        takingQuiz = false
+    }
+
+    /// Top of the page: progress until Coax knows the user's voice, then a
+    /// 1-2 sentence profile they react to.
+    @ViewBuilder private var voiceSection: some View {
+        Section {
+            if profile.isReady {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("YOUR VOICE")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.coax)
+                    Text(profile.summary)
+                        .font(.title3.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if profile.agreedAt != nil {
+                        Label("You said this sounds like you", systemImage: "checkmark.circle.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.coax)
+                    } else {
+                        Text("Does this sound like you?")
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
+                        HStack(spacing: 10) {
+                            Button("Sounds like me") {
+                                var updated = profile
+                                updated.agreedAt = profile.messageCount
+                                updated.acceptLearned()
+                                save(updated)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Color.coax)
+                            Button("Not quite") { step = 0; takingQuiz = true }
+                                .buttonStyle(.bordered)
                         }
+                        .controlSize(.large)
                     }
                 }
-                .padding(18)
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-
-                Button {
-                    var updated = VoiceSettings.profile
-                    updated.quiz = answers
-                    updated.trustQuiz = false
-                    save(updated)
-                    VoiceSettings.isEnabled = true
-                    enabled = true
-                    takingQuiz = false
-                } label: {
-                    Text("Next").font(.headline).frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("GETTING TO KNOW YOUR VOICE")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.coax)
+                    ProgressView(value: profile.readiness)
+                        .tint(Color.coax)
+                    Text("\(profile.messageCount) of \(VoiceProfile.confidentAt) of your texts read")
+                        .font(.headline)
+                    Text("About \(profile.screenshotsToGo) more screenshot\(profile.screenshotsToGo == 1 ? "" : "s") and Coax will describe your voice for you to check. Your quiz answers shape replies until then.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .accessibilityIdentifier("voiceQuizNext")
+                .padding(.vertical, 6)
             }
-            .padding(22)
         }
     }
 
@@ -92,6 +166,7 @@ struct VoiceProfileView: View {
 
     private var card: some View {
         List {
+            voiceSection
             Section {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(profile.surprise == nil ? "YOUR TEXTING STYLE" : "YOUR TEXTING STYLE · UPDATED")
@@ -102,8 +177,10 @@ struct VoiceProfileView: View {
                     if !profile.chips.isEmpty {
                         ChipRow(chips: profile.chips)
                     }
+                    // Every scale shows; ones Coax hasn't learned yet say so, so the learning is visible.
                     ForEach(VoiceTrait.allCases) { trait in
-                        TraitScale(trait: trait, value: profile.value(trait),
+                        TraitScale(trait: trait,
+                                   value: profile.shownTraits.contains(trait) ? profile.value(trait) : nil,
                                    quizValue: profile.surprise != nil ? profile.quiz[trait.rawValue] : nil)
                     }
                     if profile.surprise != nil {
@@ -142,14 +219,12 @@ struct VoiceProfileView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                LabeledContent("Your screenshots", value: messagesLine)
-                Button("Retake the quiz") { takingQuiz = true }
+                LabeledContent("Your own texts read", value: messagesLine)
+                Button("Retake the quiz") { step = 0; takingQuiz = true }
             } header: {
                 Text("Learned from")
             } footer: {
-                Text(profile.messageCount < VoiceProfile.confidentAt
-                     ? "Still learning. Coax gets more like you as you use it: your own messages in the screenshots you already take for replies tune this. No uploading."
-                     : "Your own messages in the screenshots you take for replies keep this up to date.")
+                Text("Coax picks up your own texts from the screenshots you already take for replies and keeps learning. Nothing extra to do.")
             }
 
             Section {
@@ -175,7 +250,9 @@ struct VoiceProfileView: View {
     }
 
     private var messagesLine: String {
-        profile.messageCount == 1 ? "1 of your messages" : "\(profile.messageCount) of your messages"
+        // Your own texts (not screenshots), counted once each; the same target as the progress bar.
+        let ready = VoiceProfile.confidentAt
+        return profile.messageCount >= ready ? "\(profile.messageCount)" : "\(profile.messageCount) of \(ready)"
     }
 
     private func save(_ updated: VoiceProfile) {
@@ -193,11 +270,14 @@ extension VoiceProfile {
 /// One slider shown read-only, with an optional hollow marker for the quiz answer.
 private struct TraitScale: View {
     var trait: VoiceTrait
-    var value: Double
+    /// nil = not learned yet: the track shows "learning from your texts" instead of a dot.
+    var value: Double?
     var quizValue: Double?
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(trait.name)
+                .font(.subheadline.weight(.semibold))
             HStack {
                 Text(trait.ends.low)
                 Spacer()
@@ -214,18 +294,25 @@ private struct TraitScale: View {
                             .frame(width: 16, height: 16)
                             .offset(x: quizValue * (geo.size.width - 16))
                     }
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 18, height: 18)
-                        .offset(x: value * (geo.size.width - 18))
+                    if let value {
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 18, height: 18)
+                            .offset(x: value * (geo.size.width - 18))
+                    } else {
+                        Text("Learning from your texts…")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                    }
                 }
                 .frame(height: 18)
             }
             .frame(height: 18)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(trait.question)
-        .accessibilityValue(value < 0.4 ? trait.ends.low : value > 0.6 ? trait.ends.high : "in between")
+        .accessibilityLabel(trait.name)
+        .accessibilityValue(value.map { $0 < 0.4 ? trait.ends.low : $0 > 0.6 ? trait.ends.high : "in between" } ?? "still learning")
     }
 }
 

@@ -352,6 +352,8 @@ class VoiceProfile(unittest.TestCase):
         self.assertIn("dry, teasing humour", text)
         self.assertNotIn("emoji", text)          # middle value says nothing
         self.assertNotIn("openly keen", text)    # booleans are ignored
+        casual = prompts.user_prompt(self.MSGS, "hinge", 3, voice={"looking": 0.1})
+        self.assertIn("wants something casual", casual)
         self.assertLess(text.index("voice profile"), text.index("Conversation so far"))
 
     def test_examples_trimmed_and_deduped(self):

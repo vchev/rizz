@@ -47,6 +47,28 @@ final class VoiceProfileTests: XCTestCase {
         XCTAssertNil(profile.surprise)
     }
 
+    func testUnansweredTraitsComeFromTextsAlone() {
+        var profile = VoiceProfile()
+        profile.quiz = ["humour": 0.8, "forward": 0.5, "looking": 0.2]
+        XCTAssertEqual(profile.shownTraits, [.humour, .forward, .looking])
+        profile.learn(from: mine((1...10).map { "ok \($0)" }))
+        XCTAssertLessThan(profile.value(.length), 0.1)
+        XCTAssertTrue(profile.shownTraits.contains(.length))
+        XCTAssertNil(profile.surprise)
+        XCTAssertEqual(profile.payload?.looking, 0.2)
+    }
+
+    func testVoiceSummaryOnceReady() {
+        var profile = VoiceProfile()
+        profile.quiz = ["humour": 0.9, "forward": 0.1, "looking": 0.9]
+        XCTAssertFalse(profile.isReady)
+        XCTAssertEqual(profile.screenshotsToGo, 7)
+        profile.learn(from: mine((1...20).map { "ok \($0)" }))
+        XCTAssertTrue(profile.isReady)
+        XCTAssertEqual(profile.summary,
+                       "You keep your texts short in all lowercase, rarely with emoji. You're playful and like to tease and play it cool, looking for something real.")
+    }
+
     func testPayloadOnlyWhenThereIsSomething() {
         XCTAssertNil(VoiceProfile().payload)
         var profile = VoiceProfile()
