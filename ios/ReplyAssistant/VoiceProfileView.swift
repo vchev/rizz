@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// "Your texting style" (Sprint 3 preview): a 5-slider quiz, then a style card
+/// "Your texting style" (Sprint 3 preview): a short quiz (pick a sample text + 3 sliders), then a style card
 /// that keeps improving from the user's own messages in their screenshots.
 /// Reached from the main screen in test builds only.
 struct VoiceProfileView: View {
@@ -37,10 +37,36 @@ struct VoiceProfileView: View {
             VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("How do you text?").font(.title.bold())
-                    Text("Three things Coax can't tell from your texts. Length, capitals and emoji it learns from the screenshots you already take.")
+                    Text("A starting point. Coax keeps learning from the screenshots you already take.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Which sounds most like you?").font(.headline)
+                    ForEach(StyleSample.all) { sample in
+                        let picked = sample.answers.allSatisfy { answers[$0.key] == $0.value }
+                        Button {
+                            answers.merge(sample.answers) { _, new in new }
+                        } label: {
+                            HStack {
+                                Text(sample.text)
+                                    .padding(.horizontal, 14).padding(.vertical, 9)
+                                    .foregroundStyle(.white)
+                                    .background(Color.coax, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                Spacer(minLength: 8)
+                                Image(systemName: picked ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3)
+                                    .foregroundStyle(picked ? Color.coax : Color.secondary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(sample.text)
+                        .accessibilityAddTraits(picked ? .isSelected : [])
+                    }
+                }
+                .padding(18)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 VStack(spacing: 24) {
                     ForEach(VoiceTrait.quizTraits) { trait in
                         VStack(alignment: .leading, spacing: 4) {

@@ -56,6 +56,25 @@ enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
     static var quizTraits: [VoiceTrait] { allCases.filter { !$0.isMeasured } }
 }
 
+/// "Which sounds most like you?": one tap at setup gives length, capitals and emoji
+/// a starting point (there are no texts yet), until the user's own texts take over.
+struct StyleSample: Identifiable, Equatable {
+    var id: String { text }
+    let text: String
+    let length: Double, caps: Double, emoji: Double
+
+    static let all = [
+        StyleSample(text: "ya same lol", length: 0.1, caps: 0.0, emoji: 0.1),
+        StyleSample(text: "Haha same! What are you up to this weekend?", length: 0.6, caps: 1.0, emoji: 0.1),
+        StyleSample(text: "omg same 😂😂 we need to go", length: 0.35, caps: 0.0, emoji: 0.9),
+    ]
+
+    /// The quiz answers this pick stands for.
+    var answers: [String: Double] {
+        [VoiceTrait.length.rawValue: length, VoiceTrait.caps.rawValue: caps, VoiceTrait.emoji.rawValue: emoji]
+    }
+}
+
 /// The user's voice profile ("Your texting style"), kept on the phone only.
 ///
 /// It starts from a 5-slider quiz, then the user's own messages (right-hand

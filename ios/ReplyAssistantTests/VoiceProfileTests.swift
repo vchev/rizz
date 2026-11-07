@@ -60,6 +60,14 @@ final class VoiceProfileTests: XCTestCase {
         XCTAssertEqual(profile.payload?.looking, 0.2)
     }
 
+    func testSamplePickSeedsWhatTextsWillLearn() {
+        var profile = VoiceProfile()
+        profile.quiz = StyleSample.all[0].answers
+        XCTAssertEqual(profile.value(.length), 0.1, accuracy: 0.001)
+        XCTAssertEqual(profile.payload?.caps, 0)
+        XCTAssertEqual(Set(StyleSample.all.flatMap { $0.answers.keys }), ["length", "caps", "emoji"])
+    }
+
     func testPayloadOnlyWhenThereIsSomething() {
         XCTAssertNil(VoiceProfile().payload)
         var profile = VoiceProfile()
