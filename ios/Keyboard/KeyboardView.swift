@@ -185,7 +185,7 @@ private struct HeaderLink: View {
             .foregroundStyle(Color.coax)
             .frame(minHeight: 24)
             // Easier to hit than it looks (Apple's minimum is 44 points).
-            .padding(.vertical, 8).contentShape(Rectangle()).padding(.vertical, -8)
+            .padding(.vertical, 10).contentShape(Rectangle()).padding(.vertical, -10)
         }
         .buttonStyle(.plain)
     }
