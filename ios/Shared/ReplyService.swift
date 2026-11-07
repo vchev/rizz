@@ -54,7 +54,8 @@ enum SayPick: String, CaseIterable, Identifiable {
         }
     }
 
-    /// The line sent to the reply engine as `intent`.
+    /// The line sent to the reply engine as `intent`. Keep these exact strings: the engine
+    /// (prompt v12, PR #42) matches them to fuller hints.
     var intent: String {
         switch self {
         case .yes: return "Say yes"

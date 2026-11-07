@@ -343,6 +343,8 @@ final class ReplySuggestionDecodingTests: XCTestCase {
 final class SayPickTests: XCTestCase {
     func testQuickPicksInOrderAndEachFitsTheLimit() {
         // Vanessa, Nov 7: plain "No" (the mood sets how nice it sounds).
+        // The engine matches these exact intent lines (prompt v12).
+        XCTAssertEqual(SayPick.allCases.map(\.intent), ["Say yes", "Say no", "Ask them out", "Change the topic"])
         XCTAssertEqual(SayPick.allCases.map(\.label), ["Yes", "No", "Ask them out", "Change topic"])
         XCTAssertEqual(Set(SayPick.allCases.map(\.intent)).count, SayPick.allCases.count)
         XCTAssertTrue(SayPick.allCases.allSatisfy { $0.intent.count <= 200 })  // ReplyFlowModel.maxIntent
