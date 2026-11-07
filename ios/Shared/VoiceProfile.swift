@@ -86,6 +86,9 @@ struct VoiceProfile: Codable, Equatable {
     var capitalStarts = 0
     var letterStarts = 0
     var emojiMessages = 0
+    /// Replies picked, by mood label: humour and "say it vs play it cool" learn from these.
+    /// Optional so profiles saved before this field still load.
+    var moodPicks: [String: Int]?
     /// The user's most recent own messages, newest last, for few-shot examples.
     var recent: [String] = []
     /// Normalised texts already counted, so overlapping screenshots never count twice.
@@ -98,6 +101,20 @@ struct VoiceProfile: Codable, Equatable {
     static let messagesForFullWeight = 40.0
     /// Below this many messages the card says "still learning".
     static let confidentAt = 20
+    /// Picks needed before humour and forward start to move, and for full weight (80%).
+    static let picksToStart = 5
+    static let picksForFullWeight = 20.0
+
+    /// Where a picked mood points humour and forward (0...1). Moods that say nothing
+    /// about a trait leave it out.
+    static let moodLeanings: [String: [VoiceTrait: Double]] = [
+        "funny": [.humour: 1.0],
+        "playful": [.humour: 0.8, .forward: 0.6],
+        "flirty": [.humour: 0.6, .forward: 0.8],
+        "bold": [.forward: 1.0],
+        "sweet": [.humour: 0.2, .forward: 0.6],
+        "chill": [.forward: 0.15],
+    ]
 
     var hasQuiz: Bool { !quiz.isEmpty }
 
@@ -136,9 +153,37 @@ struct VoiceProfile: Codable, Equatable {
             return Double(capitalStarts) / Double(letterStarts)
         case .emoji:
             return min(Double(emojiMessages) / Double(messageCount) * 2, 1)   // half the texts = 1
-        case .humour, .forward, .looking:
+        case .humour, .forward:
+            return pickLeaning(trait)
+        case .looking:
             return nil
         }
+    }
+
+    /// Humour or forward from the moods the user picks, once there are enough picks.
+    private func pickLeaning(_ trait: VoiceTrait) -> Double? {
+        var total = 0.0, count = 0
+        for (mood, n) in moodPicks ?? [:] {
+            guard let lean = Self.moodLeanings[mood]?[trait] else { continue }
+            total += lean * Double(n)
+            count += n
+        }
+        return count >= Self.picksToStart ? total / Double(count) : nil
+    }
+
+    /// How much the learned value counts against the quiz answer (0...0.8).
+    private func learnedWeight(_ trait: VoiceTrait) -> Double {
+        if trait.isMeasured { return min(Double(messageCount) / Self.messagesForFullWeight, 1) * 0.8 }
+        let picks = (moodPicks ?? [:]).filter { Self.moodLeanings[$0.key]?[trait] != nil }.values.reduce(0, +)
+        return min(Double(picks) / Self.picksForFullWeight, 1) * 0.8
+    }
+
+    /// Count a picked reply's mood toward humour and forward.
+    mutating func learnPick(mood: String?) {
+        guard let mood = mood?.lowercased().trimmingCharacters(in: .whitespaces),
+              Self.moodLeanings[mood] != nil else { return }
+        moodPicks = moodPicks ?? [:]
+        moodPicks?[mood, default: 0] += 1
     }
 
     /// The value used for replies: the quiz answer, moved toward what the messages show.
@@ -147,7 +192,7 @@ struct VoiceProfile: Codable, Equatable {
         if quiz[trait.rawValue] == nil, !trustQuiz, let seen = learned(trait) { return seen }
         let answer = quiz[trait.rawValue] ?? 0.5
         guard !trustQuiz, let seen = learned(trait) else { return answer }
-        let weight = min(Double(messageCount) / Self.messagesForFullWeight, 1) * 0.8
+        let weight = learnedWeight(trait)
         return answer * (1 - weight) + seen * weight
     }
 
@@ -285,6 +330,14 @@ enum VoiceSettings {
         var current = profile
         if isLearning, current.learn(from: messages, ignoring: ignoredTexts) > 0 { profile = current }
         return current.payload
+    }
+
+    /// Called when the user picks a reply: its mood tunes humour and forward (when allowed).
+    static func learnPick(_ reply: ReplySuggestion) {
+        guard isEnabled, isLearning else { return }
+        var current = profile
+        current.learnPick(mood: reply.label)
+        if current != profile { profile = current }
     }
 
     static func reset() {

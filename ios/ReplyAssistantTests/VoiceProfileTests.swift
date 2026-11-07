@@ -92,4 +92,33 @@ final class VoiceProfileTests: XCTestCase {
         let json = String(data: try JSONEncoder().encode(body), encoding: .utf8) ?? ""
         XCTAssertFalse(json.contains("voice"))
     }
+
+    func testPickedMoodsTuneHumourAndForward() {
+        var profile = VoiceProfile()
+        profile.quiz = ["humour": 0.2, "forward": 0.5]
+        let funny = ReplySuggestion(text: "x", label: "Funny")
+        for _ in 0..<4 { profile.learnPick(mood: funny.label) }
+        // Too few picks: the quiz still decides.
+        XCTAssertNil(profile.learned(.humour))
+        XCTAssertEqual(profile.value(.humour), 0.2, accuracy: 0.001)
+        profile.learnPick(mood: funny.label)
+        XCTAssertEqual(profile.learned(.humour) ?? 0, 1, accuracy: 0.001)
+        // 5 of 20 picks for full weight: 0.2 moves a quarter of the way (x 0.8) toward 1.
+        XCTAssertEqual(profile.value(.humour), 0.2 * 0.8 + 1 * 0.2, accuracy: 0.001)
+        // Funny says nothing about forward; unknown labels are ignored.
+        XCTAssertNil(profile.learned(.forward))
+        profile.learnPick(mood: "direct")
+        profile.learnPick(mood: nil)
+        XCTAssertEqual(profile.moodPicks, ["funny": 5])
+        for _ in 0..<20 { profile.learnPick(mood: "chill") }
+        XCTAssertEqual(profile.learned(.forward) ?? 0, 0.15, accuracy: 0.001)
+        XCTAssertEqual(profile.value(.forward), 0.5 * 0.2 + 0.15 * 0.8, accuracy: 0.001)
+    }
+
+    func testProfilesSavedBeforePickLearningStillLoad() throws {
+        let old = #"{"quiz":{"humour":0.7},"trustQuiz":false,"messageCount":0,"wordCount":0,"capitalStarts":0,"letterStarts":0,"emojiMessages":0,"recent":[],"seen":[]}"#
+        let profile = try JSONDecoder().decode(VoiceProfile.self, from: Data(old.utf8))
+        XCTAssertEqual(profile.quiz["humour"], 0.7)
+        XCTAssertNil(profile.moodPicks)
+    }
 }

@@ -314,6 +314,7 @@ final class ReplyFlowModel: ObservableObject {
     /// The person typed in or copied this reply.
     func recordPick(_ reply: ReplySuggestion) {
         HabitStore.update { $0.pick(reply) }
+        VoiceSettings.learnPick(reply)
     }
 
     private static func seconds(_ t: Double) -> String { String(format: "%.1fs", t) }
