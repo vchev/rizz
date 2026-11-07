@@ -17,8 +17,12 @@ final class ReplyFlowModel: ObservableObject {
     @Published var replies: [ReplySuggestion] = []
     /// Set when the user edits the conversation after replies came back.
     @Published var editedSinceReplies = false
-    /// The screenshots being read, shown small while Coax reads them.
-    @Published var previews: [UIImage] = []
+    /// The screenshots being read, shown small while Coax reads them, in chat order.
+    @Published var previews: [UIImage] = [] {
+        didSet { if previews.count != screenshotParts.count { screenshotParts = [] } }
+    }
+    /// What each screenshot in `previews` read, in the same order.
+    private var screenshotParts: [[ChatMessage]] = []
     /// How many messages the latest screenshots showed. `messages` can hold
     /// more: the earlier part of the same chat, saved on the phone.
     @Published var readCount = 0
@@ -69,6 +73,31 @@ final class ReplyFlowModel: ObservableObject {
         chatID = chat.id
         messages = chat.messages
         latestStart = chat.latest?.lowerBound
+    }
+
+    /// Whether the screenshots can be put in another order (2 or more were read).
+    var canReorderScreenshots: Bool { previews.count > 1 && screenshotParts.count == previews.count && !isBusy }
+
+    /// The person dragged screenshot `source` to position `destination` (both are
+    /// indexes into `previews`; `destination` is where it ends up). The chat is joined
+    /// again in the new order (no re-reading) and fresh replies are fetched. Speakers
+    /// the person switched by hand stay switched.
+    func moveScreenshot(from source: Int, to destination: Int) async {
+        guard canReorderScreenshots, previews.indices.contains(source), previews.indices.contains(destination),
+              source != destination else { return }
+        let start = latestIndex
+        let end = min(start + readCount, messages.count)
+        let moved = Transcript.reorder(screenshotParts, from: source, to: destination,
+                                       keepingSpeakersOf: Array(messages[start..<end]))
+        var images = previews
+        images.insert(images.remove(at: source), at: destination)
+        screenshotParts = moved.parts
+        previews = images
+        messages.replaceSubrange(start..<end, with: moved.joined)
+        readCount = moved.joined.count
+        replies = []
+        saveEdits()
+        await generate(tone: tone)
     }
 
     /// Whether "Wrong chat? Start fresh" can split off the latest screenshot.
@@ -166,6 +195,7 @@ final class ReplyFlowModel: ObservableObject {
                 return Transcript.Clues(first: times.min(), last: times.max(), hasReceipt: chats[i].hasReceipt)
             }
             let kept = Transcript.chatOrder(sameChat.map { parts[$0] }, clues: clues).map { sameChat[$0] }
+            screenshotParts = kept.map { parts[$0] }
             previews = kept.map { shots[$0].image }
             let all = kept.map { parts[$0] }.reduce([ChatMessage]()) { Transcript.append($1, to: $0) }
             use(all)
