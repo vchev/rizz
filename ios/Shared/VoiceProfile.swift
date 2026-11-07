@@ -11,7 +11,7 @@ enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
         case .length: return "Message length"
         case .caps: return "Capital letters"
         case .humour: return "Humour"
-        case .emoji: return "Emoji"
+        case .emoji: return "How often you use emoji"
         case .forward: return "When you like someone"
         }
     }
@@ -22,7 +22,7 @@ enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
         case .length: return ("\"ya same\"", "a full paragraph")
         case .caps: return ("all lowercase", "Proper Sentences.")
         case .humour: return ("sincere", "dry and teasing")
-        case .emoji: return ("almost never", "in every text")
+        case .emoji: return ("never", "in every text 😂")
         case .forward: return ("play it cool", "say it")
         }
     }
