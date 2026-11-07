@@ -58,6 +58,9 @@ struct KeyboardView: View {
     /// keyboard), what this screen is for in the middle, one action on the right.
     private var header: some View {
         HStack(spacing: 8) {
+            // iPhones with Face ID already show a globe under the keyboard, so a
+            // second one here is repetitive (Vanessa, Nov 7) and squeezes the header.
+            if state.showsGlobe {
             Button(action: actions.nextKeyboard) {
                 Label("Keyboard", systemImage: "globe")
                     .font(.caption.weight(.semibold))
@@ -69,6 +72,7 @@ struct KeyboardView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Next keyboard")
             .accessibilityHint("Switches to your usual keyboard, for edits")
+            }
 
             Text(headerTitle)
                 .font(.caption.weight(.semibold))
@@ -77,6 +81,8 @@ struct KeyboardView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             headerAction
+                .fixedSize()
+                .layoutPriority(1)
         }
         .padding(.horizontal, 2)
     }
@@ -383,7 +389,7 @@ private struct InsertedNote: View {
     var number: Int
 
     var body: some View {
-        Label("Reply \(number) is in your message. Send it, or tap Keyboard to edit it with your usual keys.", systemImage: "checkmark.circle.fill")
+        Label("Reply \(number) is in your message. Send it, or tap the globe to edit it with your usual keys.", systemImage: "checkmark.circle.fill")
             .font(.caption.weight(.semibold))
             .frame(maxWidth: .infinity, minHeight: 30)
             .padding(.horizontal, 8)
