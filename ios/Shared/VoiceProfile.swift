@@ -143,7 +143,7 @@ struct VoiceProfile: Codable, Equatable {
 
     /// What the user's messages say, or nil when there aren't enough yet.
     func learned(_ trait: VoiceTrait) -> Double? {
-        guard messageCount >= 5 else { return nil }
+        if trait.isMeasured, messageCount < 5 { return nil }
         switch trait {
         case .length:
             let avg = Double(wordCount) / Double(messageCount)
