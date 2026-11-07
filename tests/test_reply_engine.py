@@ -182,13 +182,13 @@ class Suggest(unittest.TestCase):
         self.assertIn("\"say no, but 'funny'\"", seen[0])
         self.assertIn("every reply is funny", seen[0])
         self.assertIn("The mood is only how it sounds", seen[0])
-        self.assertNotIn("A no is a real no", seen[0])
         reply.suggest_reply_items(CHAT, intent="   ", call=spy, config=CONFIG)
         self.assertNotIn("What the user wants to say", seen[1])
         self.assertNotIn("The mood is only how it sounds", seen[1])
-        # The app's quick picks get a fuller hint; a mood alone gets none.
-        reply.suggest_reply_items(CHAT, intent="Say no", tone="funny", call=spy, config=CONFIG)
-        self.assertIn("A no is a real no", seen[2])
+        # Free text is a brief to brainstorm from; a mood alone gets none of this.
+        reply.suggest_reply_items(CHAT, intent="tell him no but nicely", tone="funny", call=spy, config=CONFIG)
+        self.assertIn("brainstorm different ways", seen[2])
+        self.assertIn("it is a real no", seen[2])
         self.assertIn("beats the usual rules about saying yes", seen[2])
         reply.suggest_reply_items(CHAT, tone="funny", call=spy, config=CONFIG)
         self.assertNotIn("The mood is only how it sounds", seen[3])

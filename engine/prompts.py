@@ -169,20 +169,6 @@ def unanswered_match_messages(messages):
 # Moods a reply can be labelled with (the "label" in the JSON).
 MOODS = ("playful", "flirty", "sweet", "chill", "bold", "funny")
 
-# The app's quick picks send these short lines; each gets a little more to go on.
-INTENT_HINTS = {
-    "say no": "A no is a real no: no maybe, no \"we'll see\", no counter-offer, and no made-up "
-              "excuse. Say no to what the match just asked or suggested, kindly, and without "
-              "apologising at length. A funny no turns them down with a light joke about the ask "
-              "itself, not about them.",
-    "say yes": "A yes is a clear, happy yes to what the match just asked or suggested. If it is a "
-               "plan, move it one step closer (a day or a time) without asking for anything new.",
-    "ask them out": "Ask the match out: suggest one specific, easy plan that fits the chat (an activity "
-                    "or place they mentioned if there is one) and a rough time. One question, low pressure.",
-    "change the topic": "Leave the current topic behind in a few words and open a new one the match "
-                        "can easily answer, ideally from something in their messages or profile.",
-}
-
 
 def user_prompt(messages, platform, n, tone=None, replying_to=None, voice=None, favorite_mood=None,
                 intent=None):
@@ -220,9 +206,10 @@ def user_prompt(messages, platform, n, tone=None, replying_to=None, voice=None, 
                      "rules above, leave that part out. This beats the usual rules about saying yes to plans and "
                      "keeping things going. Make the point clear in the first few words, so the match can't "
                      "miss it." % intent)
-        hint = INTENT_HINTS.get(intent.strip().lower().rstrip(".!"))
-        if hint:
-            parts.append(hint)
+        parts.append("Treat it as a brief, not a script: brainstorm different ways to say it (different "
+                     "angles, not the same line reworded), and don't just repeat their words back. If it is a "
+                     "no, it is a real no: kind, with no maybe, no counter-offer and no made-up excuse. If it "
+                     "is a yes or a plan, make it clear and specific.")
     if tone in TONE_RULES:
         parts.append(TONE_RULES[tone])
         if intent:
