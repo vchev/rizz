@@ -159,6 +159,46 @@ class Suggest(unittest.TestCase):
         self.assertIn("every reply is funny", seen[-2])
         self.assertIn("every reply is flirty", seen[-1])
 
+    def test_favorite_mood_is_a_nudge(self):
+        seen = []
+        def spy(system, user, config):
+            seen.append(user)
+            return reply.stand_in_model(system, user, config)
+        reply.suggest_reply_items(CHAT, favorite_mood="playful", call=spy, config=CONFIG)
+        reply.suggest_reply_items(CHAT, favorite_mood="playful", tone="sweet", call=spy, config=CONFIG)
+        reply.suggest_reply_items(CHAT, favorite_mood="flirty", under_18=True, call=spy, config=CONFIG)
+        reply.suggest_reply_items(CHAT, favorite_mood="<script>", call=spy, config=CONFIG)
+        self.assertIn('most often picks "playful"', seen[0])
+        for user in seen[1:]:
+            self.assertNotIn("most often picks", user)
+
+    def test_intent_steers_every_reply(self):
+        seen = []
+        def spy(system, user, config):
+            seen.append(user)
+            return reply.stand_in_model(system, user, config)
+        reply.suggest_reply_items(CHAT, intent='  say no,\n but "funny" ', tone="funny", call=spy, config=CONFIG)
+        self.assertIn("What the user wants to say", seen[0])
+        self.assertIn("\"say no, but 'funny'\"", seen[0])
+        self.assertIn("every reply is funny", seen[0])
+        reply.suggest_reply_items(CHAT, intent="   ", call=spy, config=CONFIG)
+        self.assertNotIn("What the user wants to say", seen[1])
+        with self.assertRaises(reply.BadRequest):
+            reply.suggest_reply_items(CHAT, intent="x" * 201, call=spy, config=CONFIG)
+        with self.assertRaises(reply.BadRequest):
+            reply.suggest_reply_items(CHAT, intent=["no"], call=spy, config=CONFIG)
+
+    def test_api_passes_favorite_mood(self):
+        seen = []
+        def spy(system, user, config):
+            seen.append(user)
+            return reply.stand_in_model(system, user, config)
+        body = json.dumps({"messages": [{"speaker": "them", "text": "hi there"}], "favorite_mood": "chill"}).encode()
+        with mock.patch.object(reply.settings, "load_config", return_value=CONFIG):
+            status, _ = api.handle(body, call=spy)
+        self.assertEqual(status, 200)
+        self.assertIn('most often picks "chill"', seen[0])
+
     def test_default_asks_for_different_moods(self):
         self.assertIn("give each reply a different mood", prompts.system_prompt())
 

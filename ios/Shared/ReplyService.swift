@@ -9,8 +9,9 @@ protocol ReplyService {
     /// True when replies are placeholders, so the app can say so.
     var isSample: Bool { get }
     /// `replyingTo`: the message the user has started a quoted reply to, if any.
+    /// `intent`: what the user typed they want to say ("say no, but funny"), if anything.
     func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?,
-                        replyingTo: String?) async throws -> [ReplySuggestion]
+                        replyingTo: String?, intent: String?) async throws -> [ReplySuggestion]
     /// Wakes the server and opens the connection before replies are needed,
     /// so the real request doesn't wait for a cold start or a new connection.
     func warmUp()
@@ -20,7 +21,12 @@ extension ReplyService {
     func warmUp() {}
 
     func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?) async throws -> [ReplySuggestion] {
-        try await suggestReplies(for: messages, platform: platform, tone: tone, replyingTo: nil)
+        try await suggestReplies(for: messages, platform: platform, tone: tone, replyingTo: nil, intent: nil)
+    }
+
+    func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?,
+                        replyingTo: String?) async throws -> [ReplySuggestion] {
+        try await suggestReplies(for: messages, platform: platform, tone: tone, replyingTo: replyingTo, intent: nil)
     }
 }
 
@@ -66,7 +72,7 @@ struct SampleReplyService: ReplyService {
     var isSample: Bool { true }
 
     func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?,
-                        replyingTo: String?) async throws -> [ReplySuggestion] {
+                        replyingTo: String?, intent: String?) async throws -> [ReplySuggestion] {
         try await Task.sleep(nanoseconds: 700_000_000)
         let moods: [String]
         switch tone {
@@ -112,11 +118,17 @@ struct HTTPReplyService: ReplyService {
         var replyingTo: String?
         /// The user's voice profile (Sprint 3 preview). Left out when it's off.
         var voice: VoiceProfile.Payload? = nil
+        /// The mood the user picks most (counted on the phone). Left out until there's one.
+        var favoriteMood: String? = nil
+        /// What the user typed they want to say ("say no, but funny"). Left out when empty.
+        var intent: String? = nil
 
         enum CodingKeys: String, CodingKey {
             case platform, n, tone, messages, voice
             case under18 = "under_18"
             case replyingTo = "replying_to"
+            case favoriteMood = "favorite_mood"
+            case intent
         }
     }
 
@@ -148,7 +160,7 @@ struct HTTPReplyService: ReplyService {
     }
 
     func suggestReplies(for messages: [ChatMessage], platform: String, tone: ReplyTone?,
-                        replyingTo: String?) async throws -> [ReplySuggestion] {
+                        replyingTo: String?, intent: String?) async throws -> [ReplySuggestion] {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.timeoutInterval = 30
@@ -158,7 +170,9 @@ struct HTTPReplyService: ReplyService {
             RequestBody(platform: platform, n: AppConfig.repliesPerRequest, tone: tone,
                         under18: AgeSettings.wantsTeenReplies ? true : nil, messages: messages,
                         replyingTo: replyingTo,
-                        voice: VoiceSettings.voiceForRequest(learningFrom: messages)))
+                        voice: VoiceSettings.voiceForRequest(learningFrom: messages),
+                        favoriteMood: tone == nil ? HabitStore.current.favoriteMood : nil,
+                        intent: intent))
 
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {

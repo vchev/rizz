@@ -240,3 +240,64 @@ enum VoiceSettings {
         for key in [profileKey, enabledKey, learningKey] { defaults.removeObject(forKey: key) }
     }
 }
+
+/// What the person does with replies, counted on the phone only: the PRD's
+/// usage numbers without any analytics service, plus the mood they pick most,
+/// so the next replies can lean that way. Nothing here is uploaded except the
+/// favorite mood's one word, sent with a reply request.
+struct ReplyHabits: Codable, Equatable {
+    /// Chats read from screenshots.
+    var reads = 0
+    /// Sets of replies shown.
+    var replySets = 0
+    /// New replies asked for when a set was already showing (a tag or "Get new replies").
+    var askedAgain = 0
+    /// Replies typed in or copied.
+    var picks = 0
+    /// Picks by the reply's mood label ("playful": 4).
+    var moodPicks: [String: Int] = [:]
+
+    /// Picks needed before Coax leans toward a favorite mood.
+    static let minPicks = 5
+    /// The favorite must be at least this share of picks.
+    static let minShare = 0.4
+
+    /// The mood picked most, once there's a clear one.
+    var favoriteMood: String? {
+        guard picks >= Self.minPicks,
+              let top = moodPicks.sorted(by: { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }).first,
+              Double(top.value) / Double(picks) >= Self.minShare else { return nil }
+        return top.key
+    }
+
+    mutating func pick(_ reply: ReplySuggestion) {
+        picks += 1
+        if let mood = reply.label?.lowercased().trimmingCharacters(in: .whitespaces), !mood.isEmpty {
+            moodPicks[mood, default: 0] += 1
+        }
+    }
+
+    /// Share of reply sets where one was picked (the PRD's "would send" rate, roughly).
+    var pickRate: Double? { replySets > 0 ? Double(picks) / Double(replySets) : nil }
+}
+
+/// Where ReplyHabits is kept: this part of Coax's own settings on the phone.
+enum HabitStore {
+    private static let key = "coax.replyHabits"
+    static var defaults: UserDefaults { AgeSettings.defaults }
+    /// UI tests start clean and leave nothing behind.
+    static var isOff: Bool { ProcessInfo.processInfo.arguments.contains("-uiTesting") }
+
+    static var current: ReplyHabits {
+        guard !isOff, let data = defaults.data(forKey: key),
+              let habits = try? JSONDecoder().decode(ReplyHabits.self, from: data) else { return ReplyHabits() }
+        return habits
+    }
+
+    static func update(_ change: (inout ReplyHabits) -> Void) {
+        guard !isOff else { return }
+        var habits = current
+        change(&habits)
+        if let data = try? JSONEncoder().encode(habits) { defaults.set(data, forKey: key) }
+    }
+}

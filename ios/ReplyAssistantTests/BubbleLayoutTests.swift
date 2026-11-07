@@ -296,6 +296,35 @@ final class ScreenshotReorderTests: XCTestCase {
     }
 }
 
+final class ReplyHabitsTests: XCTestCase {
+    private func pick(_ habits: inout ReplyHabits, _ mood: String?, times: Int = 1) {
+        for _ in 0..<times { habits.pick(ReplySuggestion(text: "x", label: mood)) }
+    }
+
+    func testNoFavoriteUntilEnoughPicks() {
+        var habits = ReplyHabits()
+        pick(&habits, "playful", times: 4)
+        XCTAssertNil(habits.favoriteMood)
+        pick(&habits, "playful")
+        XCTAssertEqual(habits.favoriteMood, "playful")
+    }
+
+    func testNoFavoriteWhenPicksAreSpread() {
+        var habits = ReplyHabits()
+        for mood in ["playful", "sweet", "bold", "chill", "funny", "flirty"] { pick(&habits, mood) }
+        XCTAssertNil(habits.favoriteMood)
+    }
+
+    func testLabelsAreCountedIgnoringCase() {
+        var habits = ReplyHabits()
+        pick(&habits, "Sweet", times: 3)
+        pick(&habits, nil, times: 2)
+        XCTAssertEqual(habits.picks, 5)
+        XCTAssertEqual(habits.moodPicks["sweet"], 3)
+        XCTAssertEqual(habits.favoriteMood, "sweet")
+    }
+}
+
 final class ReplySuggestionDecodingTests: XCTestCase {
     func testLabelIsOptional() throws {
         let json = #"[{"text": "dangerously confident tbh", "label": "playful"}, {"text": "coffee?"}]"#

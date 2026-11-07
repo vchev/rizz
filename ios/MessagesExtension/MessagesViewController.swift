@@ -77,6 +77,7 @@ final class MessagesViewController: MSMessagesAppViewController {
 
     private func insert(_ reply: ReplySuggestion) {
         activeConversation?.insertText(reply.text) { _ in }
+        if screen.insertedID != reply.id { model.recordPick(reply) }
         screen.insertedID = reply.id
         // Back to the small panel so the text box with the reply is in view.
         if presentationStyle == .expanded { requestPresentationStyle(.compact) }

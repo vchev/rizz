@@ -151,6 +151,7 @@ final class KeyboardViewController: UIInputViewController {
             for _ in 0..<previous.count { proxy.deleteBackward() }
         }
         proxy.insertText(reply.text)
+        model.recordPick(reply)
         insertedText = reply.text
         state.insertedID = reply.id
         state.selectedID = reply.id

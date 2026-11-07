@@ -15,6 +15,7 @@ from engine import anthropic_api, openrouter, prompts, settings
 
 TONES = ("funny", "flirty", "sweet", "chill", "bold", "shorter")
 # Older app builds send these; they mean the same mood.
+MAX_INTENT = 200
 TONE_ALIASES = {"funnier": "funny", "flirtier": "flirty"}
 MAX_MESSAGES = 80          # only the most recent messages are sent to the model
 MAX_CHARS = 12000          # ... and at most this much text, to keep cost and speed in check
@@ -146,7 +147,8 @@ def suggest_replies(messages, platform="imessage", n=None, tone=None, under_18=F
 
 
 def suggest_reply_items(messages, platform="imessage", n=None, tone=None, under_18=False,
-                        call=None, config=None, replying_to=None, voice=None):
+                        call=None, config=None, replying_to=None, voice=None, favorite_mood=None,
+                        intent=None):
     """Like suggest_replies, but each reply comes with its short label (or None):
     [{"text": str, "label": str or None}]."""
     config = config or settings.load_config()
@@ -162,7 +164,19 @@ def suggest_reply_items(messages, platform="imessage", n=None, tone=None, under_
         replying_to = None
     if voice is not None and not isinstance(voice, dict):
         raise BadRequest("voice must be an object")
-    user = prompts.user_prompt(msgs, platform, n, tone, replying_to=replying_to, voice=voice)
+    # The mood the user picks most (counted on their phone). Only a nudge: unknown
+    # values are ignored, and teen mode never leans flirty.
+    if not isinstance(favorite_mood, str) or favorite_mood not in prompts.MOODS \
+            or (under_18 and favorite_mood == "flirty"):
+        favorite_mood = None
+    # What the user typed to steer the replies ("say no, but funny"). Optional.
+    if intent is not None and not isinstance(intent, str):
+        raise BadRequest("intent must be text")
+    intent = " ".join((intent or "").split()).replace('"', "'")
+    if len(intent) > MAX_INTENT:
+        raise BadRequest("intent must be at most %d characters" % MAX_INTENT)
+    user = prompts.user_prompt(msgs, platform, n, tone, replying_to=replying_to, voice=voice,
+                               favorite_mood=favorite_mood, intent=intent or None)
     call = call or model_call
     replies = pick_items(parse_items(call(system, user, config)), n)
     if len(replies) < n:   # one retry if the model came back short or malformed

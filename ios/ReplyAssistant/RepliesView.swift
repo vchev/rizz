@@ -94,6 +94,7 @@ struct RepliesView: View {
                 ForEach(Array(model.replies.enumerated()), id: \.element.id) { index, reply in
                     CoaxReplyCard(number: index + 1, reply: reply, copied: copiedID == reply.id) {
                         UIPasteboard.general.string = reply.text
+                        if copiedID != reply.id { model.recordPick(reply) }
                         copiedID = reply.id
                     }
                 }

@@ -30,6 +30,11 @@ final class ReplyFlowModel: ObservableObject {
     @Published var timing: String?
     /// The mood tag the current replies came from (nil = mixed moods).
     @Published var tone: ReplyTone?
+    /// What the person typed they want to say ("say no, but funny"). Empty = nothing.
+    /// Sent with every reply request until it's cleared or a new chat is read.
+    @Published var intent = ""
+    /// The engine takes up to this many characters.
+    static let maxIntent = 200
     private var readSeconds: Double?
     /// The message the user started a quoted reply to (Bumble's bar above the text box).
     var replyingTo: String?
@@ -63,6 +68,7 @@ final class ReplyFlowModel: ObservableObject {
     /// Keeps what was just read and joins it to the saved chat it belongs to.
     private func use(_ read: [ChatMessage]) {
         readCount = read.count
+        if !read.isEmpty { HabitStore.update { $0.reads += 1 } }
         guard let store, !read.isEmpty else {
             messages = read
             chatID = nil
@@ -128,6 +134,7 @@ final class ReplyFlowModel: ObservableObject {
         phase = .reading
         replies = []
         messages = []
+        intent = ""
         do {
             let started = Date()
             var all: [ChatMessage] = []
@@ -156,6 +163,7 @@ final class ReplyFlowModel: ObservableObject {
         phase = .reading
         replies = []
         messages = []
+        intent = ""
         previews = []
         do {
             let started = Date()
@@ -274,14 +282,20 @@ final class ReplyFlowModel: ObservableObject {
             phase = .failed("Couldn't tell which messages are theirs. Tap a message to switch who said it, then tap Get new replies.")
             return
         }
+        let hadReplies = !replies.isEmpty
         phase = .generating
         self.tone = tone
         let started = Date()
         defer { readSeconds = nil }
         do {
+            let wanted = String(intent.trimmingCharacters(in: .whitespacesAndNewlines).prefix(Self.maxIntent))
             replies = try await service.suggestReplies(for: Array(messages.suffix(Self.maxMessagesSent)), platform: "imessage", tone: tone,
-                                                       replyingTo: replyingTo)
+                                                       replyingTo: replyingTo, intent: wanted.isEmpty ? nil : wanted)
             editedSinceReplies = false
+            HabitStore.update {
+                $0.replySets += 1
+                if hadReplies { $0.askedAgain += 1 }
+            }
             let replySeconds = Date().timeIntervalSince(started)
             timing = [readSeconds.map { "Read \(Self.seconds($0))" }, "replies \(Self.seconds(replySeconds))"]
                 .compactMap { $0 }.joined(separator: " · ")
@@ -289,6 +303,17 @@ final class ReplyFlowModel: ObservableObject {
         } catch {
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    /// The person typed what they want to say: fresh replies that say it (in the current mood).
+    func say(_ text: String) async {
+        intent = text
+        await generate(tone: tone)
+    }
+
+    /// The person typed in or copied this reply.
+    func recordPick(_ reply: ReplySuggestion) {
+        HabitStore.update { $0.pick(reply) }
     }
 
     private static func seconds(_ t: Double) -> String { String(format: "%.1fs", t) }
@@ -324,6 +349,7 @@ final class ReplyFlowModel: ObservableObject {
         timing = nil
         phase = .waiting
         messages = []
+        intent = ""
         replies = []
         readCount = 0
         chatID = nil
