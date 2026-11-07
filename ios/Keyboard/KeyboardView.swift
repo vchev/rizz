@@ -50,7 +50,7 @@ struct KeyboardView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(.horizontal, 4)
-        .padding(.top, 6)
+        .padding(.top, 2)
         .padding(.bottom, 4)
     }
 
@@ -118,14 +118,15 @@ struct KeyboardView: View {
                     .accessibilityLabel(ReadSummaryButton.summary(model) ?? "Check chat")
                     .accessibilityHint("Shows who said what, so you can fix it")
             }
-            if showsScanAgain {
-                // Reads your latest screenshot(s) again, e.g. after new messages came in.
-                // Not a refresh of the replies (tapping a mood does that), so no refresh arrow.
-                HeaderLink(title: "New screenshot", systemImage: "camera.viewfinder") {
+            // Once replies are up there's no rescan button: a new screenshot is read on
+            // its own while the keyboard is open, and tapping a mood gets fresh replies.
+            // Re-reading the same screenshot only refreshed them (Vanessa, Nov 7).
+            if showsTryAgain {
+                HeaderLink(title: "Try again", systemImage: nil) {
                     start(actions.getRepliesFromScreenshots)
                 }
-                .accessibilityLabel(state.screenshotCount == 1 ? "Read my newest screenshot"
-                                                               : "Read my newest \(state.screenshotCount) screenshots")
+                .accessibilityLabel(state.screenshotCount == 1 ? "Try again with my newest screenshot"
+                                                               : "Try again with my newest \(state.screenshotCount) screenshots")
             }
         case .say:
             HeaderLink(title: model.hasIntent ? "Remove" : "Cancel",
@@ -149,11 +150,10 @@ struct KeyboardView: View {
         return ReadSummaryButton.summary(model) != nil
     }
 
-    private var showsScanAgain: Bool {
-        switch model.phase {
-        case .done, .failed: return true
-        case .waiting, .reading, .generating: return false
-        }
+    /// Only after something went wrong reading the chat.
+    private var showsTryAgain: Bool {
+        if case .failed = model.phase { return true }
+        return false
     }
 
     private func start(_ action: () -> Void) {
@@ -183,7 +183,7 @@ private struct HeaderLink: View {
             .font(.caption.weight(.bold))
             .lineLimit(1)
             .foregroundStyle(Color.coax)
-            .frame(minHeight: 28)
+            .frame(minHeight: 24)
             // Easier to hit than it looks (Apple's minimum is 44 points).
             .padding(.vertical, 8).contentShape(Rectangle()).padding(.vertical, -8)
         }
