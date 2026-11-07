@@ -119,11 +119,13 @@ struct KeyboardView: View {
                     .accessibilityHint("Shows who said what, so you can fix it")
             }
             if showsScanAgain {
-                HeaderLink(title: "Scan again", systemImage: "arrow.clockwise") {
+                // Reads your latest screenshot(s) again, e.g. after new messages came in.
+                // Not a refresh of the replies ("New ones" does that), so no refresh arrow.
+                HeaderLink(title: "New screenshot", systemImage: "camera.viewfinder") {
                     start(actions.getRepliesFromScreenshots)
                 }
-                .accessibilityLabel(state.screenshotCount == 1 ? "Scan my last screenshot again"
-                                                               : "Scan my last \(state.screenshotCount) screenshots again")
+                .accessibilityLabel(state.screenshotCount == 1 ? "Read my newest screenshot"
+                                                               : "Read my newest \(state.screenshotCount) screenshots")
             }
         case .say:
             HeaderLink(title: model.hasIntent ? "Remove" : "Cancel",

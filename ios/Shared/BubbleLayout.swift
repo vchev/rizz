@@ -121,6 +121,7 @@ enum BubbleLayout {
         "recent chats", "or paste text you copied", "what i read", "see all replies", "tap a reply to copy it",
         "your latest screenshot", "make it sound like you", "waiting for a screenshot", "writing replies",
         "try it with an example chat", "free to start", "settings › coax", "allow full access",
+        "scan my last screenshot", "paste copied text", "tell coax what to say", "pick a reply", "check chat",
     ]
     static let moodTags: Set<String> = ["funny", "flirty", "sweet", "chill", "bold", "shorter"]
 
