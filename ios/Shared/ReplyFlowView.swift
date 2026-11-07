@@ -182,6 +182,14 @@ struct MoodTagRow: View {
                 }
             }
         }
+        // A fade at the right edge shows there's more to swipe to.
+        .mask(HStack(spacing: 0) {
+            Color.black
+            if sayPicks {
+                LinearGradient(colors: [.black, .black.opacity(0.15)], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: 28)
+            }
+        })
     }
 }
 
@@ -252,6 +260,9 @@ struct CoaxChip: View {
             .frame(minHeight: 32)
             .background(on ? Color.coax : background, in: Capsule())
             .foregroundStyle(on ? Color.white : Color.primary)
+            // Looks 32 points tall, taps like 44 (Apple's minimum).
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(on ? .isSelected : [])
