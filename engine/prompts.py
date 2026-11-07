@@ -1,6 +1,6 @@
 """Prompts for the reply engine. Bump PROMPT_VERSION whenever a prompt changes."""
 
-PROMPT_VERSION = 11
+PROMPT_VERSION = 12
 
 SYSTEM_PROMPT = """You write the user's next text message in a dating conversation.
 
@@ -169,6 +169,20 @@ def unanswered_match_messages(messages):
 # Moods a reply can be labelled with (the "label" in the JSON).
 MOODS = ("playful", "flirty", "sweet", "chill", "bold", "funny")
 
+# The app's quick picks send these short lines; each gets a little more to go on.
+INTENT_HINTS = {
+    "say no": "A no is a real no: no maybe, no \"we'll see\", no counter-offer, and no made-up "
+              "excuse. Say no to what the match just asked or suggested, kindly, and without "
+              "apologising at length. A funny no turns them down with a light joke about the ask "
+              "itself, not about them.",
+    "say yes": "A yes is a clear, happy yes to what the match just asked or suggested. If it is a "
+               "plan, move it one step closer (a day or a time) without asking for anything new.",
+    "ask them out": "Ask the match out: suggest one specific, easy plan that fits the chat (an activity "
+                    "or place they mentioned if there is one) and a rough time. One question, low pressure.",
+    "change the topic": "Leave the current topic behind in a few words and open a new one the match "
+                        "can easily answer, ideally from something in their messages or profile.",
+}
+
 
 def user_prompt(messages, platform, n, tone=None, replying_to=None, voice=None, favorite_mood=None,
                 intent=None):
@@ -203,9 +217,17 @@ def user_prompt(messages, platform, n, tone=None, replying_to=None, voice=None, 
     if intent:
         parts.append('What the user wants to say (their own idea, typed into Coax): "%s". Every reply says '
                      "that, in their voice, each in a different way. Keep their meaning; if part of it breaks the "
-                     "rules above, leave that part out." % intent)
+                     "rules above, leave that part out. This beats the usual rules about saying yes to plans and "
+                     "keeping things going. Make the point clear in the first few words, so the match can't "
+                     "miss it." % intent)
+        hint = INTENT_HINTS.get(intent.strip().lower().rstrip(".!"))
+        if hint:
+            parts.append(hint)
     if tone in TONE_RULES:
         parts.append(TONE_RULES[tone])
+        if intent:
+            parts.append("The mood is only how it sounds: a %s reply still says what the user wants, "
+                         "plainly. Never let the joke or the vibe blur it." % tone)
     elif favorite_mood in MOODS and n > 1:
         parts.append('The user most often picks "%s" replies, so make one of the replies %s.'
                      % (favorite_mood, favorite_mood))
