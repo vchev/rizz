@@ -98,7 +98,7 @@ struct RepliesView: View {
                         copiedID = reply.id
                     }
                 }
-                SayPickRow(model: model) { copiedID = nil }
+                TellCoaxRow(model: model) { copiedID = nil }
                     .padding(.top, 4)
                 HStack(spacing: 6) {
                     MoodTagRow(model: model) { copiedID = nil }

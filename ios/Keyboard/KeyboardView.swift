@@ -87,7 +87,7 @@ struct KeyboardView: View {
             guard case .done = model.phase, !model.replies.isEmpty else { return "" }
             return state.insertedID == nil ? "Pick a reply" : "Changed your mind?"
         case .say:
-            return "What should it say?"
+            return "Tell Coax what to say"
         case .keys, .review, .fullAccessHelp:
             return ""
         }
@@ -100,6 +100,11 @@ struct KeyboardView: View {
         case .fullAccessHelp:
             HeaderLink(title: "Type", systemImage: "keyboard") { state.panel = .keys }
         case .replies:
+            if showsCheckChat {
+                HeaderLink(title: "Check chat", systemImage: nil) { state.panel = .review }
+                    .accessibilityLabel(ReadSummaryButton.summary(model) ?? "Check chat")
+                    .accessibilityHint("Shows who said what, so you can fix it")
+            }
             if showsScanAgain {
                 HeaderLink(title: "Scan again", systemImage: "arrow.clockwise") {
                     start(actions.getRepliesFromScreenshots)
@@ -108,19 +113,25 @@ struct KeyboardView: View {
                                                                : "Scan my last \(state.screenshotCount) screenshots again")
             }
         case .say:
-            HeaderLink(title: model.hasOwnIntent ? "Remove" : "Cancel",
-                       systemImage: model.hasOwnIntent ? "xmark" : "chevron.left") {
+            HeaderLink(title: model.hasIntent ? "Remove" : "Cancel",
+                       systemImage: model.hasIntent ? "xmark" : "chevron.left") {
                 state.panel = .replies
-                if model.hasOwnIntent {
+                if model.hasIntent {
                     state.insertedID = nil
                     state.selectedID = nil
                     Task { await model.clearIntent() }
                 }
             }
-            .accessibilityLabel(model.hasOwnIntent ? "Remove your line" : "Cancel, back to replies")
+            .accessibilityLabel(model.hasIntent ? "Remove your line" : "Cancel, back to replies")
         case .review:
             EmptyView()
         }
+    }
+
+    /// "Check chat" (who said what) lives in the header, so the replies get the room.
+    private var showsCheckChat: Bool {
+        guard case .done = model.phase else { return false }
+        return ReadSummaryButton.summary(model) != nil
     }
 
     private var showsScanAgain: Bool {
@@ -142,15 +153,24 @@ struct KeyboardView: View {
 
 private struct HeaderLink: View {
     var title: String
-    var systemImage: String
+    var systemImage: String?
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(Color.coax)
-                .frame(minHeight: 28)
+            Group {
+                if let systemImage {
+                    Label(title, systemImage: systemImage)
+                } else {
+                    Text(title)
+                }
+            }
+            .font(.caption.weight(.bold))
+            .lineLimit(1)
+            .foregroundStyle(Color.coax)
+            .frame(minHeight: 28)
+            // Easier to hit than it looks (Apple's minimum is 44 points).
+            .padding(.vertical, 8).contentShape(Rectangle()).padding(.vertical, -8)
         }
         .buttonStyle(.plain)
     }
@@ -190,7 +210,6 @@ private struct RepliesPanel: View {
                 }
                 ScrollView {
                     VStack(spacing: 6) {
-                        ReadSummaryButton(model: model) { state.panel = .review }
                         ForEach(Array(model.replies.enumerated()), id: \.element.id) { index, reply in
                             ReplyCard(number: index + 1, reply: reply,
                                       selected: index == selected && !alreadyIn,
@@ -216,9 +235,9 @@ private struct RepliesPanel: View {
                         actions.insert(model.replies[selected])
                     }
                 }
-                MoodTagRow(model: model, background: Color(.systemBackground), sayPicks: true,
-                           onYourOwn: {
-                               state.sayDraft = model.hasOwnIntent ? model.intent : ""
+                MoodTagRow(model: model, background: Color(.systemBackground), tellCoax: true,
+                           onTellCoax: {
+                               state.sayDraft = model.intent
                                state.shifted = state.sayDraft.isEmpty
                                state.showingSymbols = false
                                state.panel = .say
@@ -272,6 +291,7 @@ private struct StartScreen: View {
                         .background(n == state.screenshotCount ? Color.coax : Color(.secondarySystemBackground),
                                     in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                         .foregroundStyle(n == state.screenshotCount ? Color.white : Color.primary)
+                        .padding(.vertical, 10).contentShape(Rectangle()).padding(.vertical, -10)
                         .buttonStyle(.plain)
                         .accessibilityLabel("Scan the last \(n) screenshot\(n == 1 ? "" : "s")")
                         .accessibilityAddTraits(n == state.screenshotCount ? .isSelected : [])
@@ -304,7 +324,7 @@ private struct InsertedNote: View {
     var number: Int
 
     var body: some View {
-        Label("Reply \(number) is in your message. Send it, or tap Keyboard to edit.", systemImage: "checkmark.circle.fill")
+        Label("Reply \(number) is in your message. Send it, or tap Keyboard to edit it with your usual keys.", systemImage: "checkmark.circle.fill")
             .font(.caption.weight(.semibold))
             .frame(maxWidth: .infinity, minHeight: 30)
             .padding(.horizontal, 8)
@@ -359,14 +379,6 @@ private struct ReplyCard: View {
                     .font(.callout)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if let label = reply.label, !label.isEmpty {
-                    Text(label.capitalized)
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Color(.secondarySystemBackground), in: Capsule())
-                        .foregroundStyle(.secondary)
-                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 9)
@@ -505,7 +517,7 @@ private struct LetterKeys: View {
     }
 }
 
-/// "Your own": type what the reply should say on Coax's letter keys, then Write.
+/// "Type what to say": type what the reply should say on Coax's letter keys, then Get replies.
 /// Return also writes. Nothing typed here goes into the chat.
 private struct SayEditor: View {
     @ObservedObject var model: ReplyFlowModel
@@ -517,7 +529,7 @@ private struct SayEditor: View {
             HStack(spacing: 6) {
                 Group {
                     if state.sayDraft.isEmpty {
-                        Text("Like: say I'm busy, but free Sunday")
+                        Text("e.g. say I'm busy, but free Sunday")
                             .foregroundStyle(.secondary)
                     } else {
                         Text(state.sayDraft + "|")
@@ -533,7 +545,7 @@ private struct SayEditor: View {
                 .accessibilityLabel(Text(state.sayDraft.isEmpty ? "What should the reply say? Empty" : state.sayDraft))
 
                 Button(action: write) {
-                    Text("Write")
+                    Text("Get replies")
                         .font(.callout.weight(.bold))
                         .padding(.horizontal, 14)
                         .frame(minHeight: 34)

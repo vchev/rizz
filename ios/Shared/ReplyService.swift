@@ -38,33 +38,6 @@ enum ReplyTone: String, Codable, CaseIterable, Identifiable {
     var label: String { rawValue.capitalized }
 }
 
-/// "Tell Coax what to say" (Vanessa, Nov 7, option A): one tap says what the reply should
-/// do; the mood still sets how it sounds, so Funny + No is a funny no. "Your own" takes a
-/// short typed line instead. Free for everyone.
-enum SayPick: String, CaseIterable, Identifiable {
-    case yes, no, askOut, changeTopic
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .yes: return "Yes"
-        case .no: return "No"
-        case .askOut: return "Ask them out"
-        case .changeTopic: return "Change topic"
-        }
-    }
-
-    /// The line sent to the reply engine as `intent`.
-    var intent: String {
-        switch self {
-        case .yes: return "Say yes"
-        case .no: return "Say no"
-        case .askOut: return "Ask them out"
-        case .changeTopic: return "Change the topic"
-        }
-    }
-}
-
 enum AppConfig {
     /// The hosted reply endpoint. nil = use sample replies.
     static let replyAPIURL: URL? = URL(string: "https://rizz-olive.vercel.app/api/reply")

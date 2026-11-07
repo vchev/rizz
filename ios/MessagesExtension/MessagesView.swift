@@ -133,7 +133,7 @@ struct MessagesView: View {
                     ForEach(model.replies) { reply in
                         replyCard(reply)
                     }
-                    SayPickRow(model: model, onStartTyping: actions.expand) { screen.insertedID = nil }
+                    TellCoaxRow(model: model, onStartTyping: actions.expand) { screen.insertedID = nil }
                     MoodTagRow(model: model) { screen.insertedID = nil }
                     if model.replies.count > 1 {
                         Button("See all replies", action: actions.expand)

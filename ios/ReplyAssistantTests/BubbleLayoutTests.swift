@@ -339,13 +339,3 @@ final class ReplySuggestionDecodingTests: XCTestCase {
         XCTAssertEqual(ReplyTone.allCases.map(\.label), ["Funny", "Flirty", "Sweet", "Chill", "Bold", "Shorter"])
     }
 }
-
-final class SayPickTests: XCTestCase {
-    func testQuickPicksInOrderAndEachFitsTheLimit() {
-        // Vanessa, Nov 7: plain "No" (the mood sets how nice it sounds).
-        XCTAssertEqual(SayPick.allCases.map(\.label), ["Yes", "No", "Ask them out", "Change topic"])
-        XCTAssertEqual(Set(SayPick.allCases.map(\.intent)).count, SayPick.allCases.count)
-        XCTAssertTrue(SayPick.allCases.allSatisfy { $0.intent.count <= 200 })  // ReplyFlowModel.maxIntent
-    }
-
-}
