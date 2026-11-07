@@ -102,8 +102,10 @@ struct VoiceProfileView: View {
                     if !profile.chips.isEmpty {
                         ChipRow(chips: profile.chips)
                     }
-                    ForEach(profile.shownTraits) { trait in
-                        TraitScale(trait: trait, value: profile.value(trait),
+                    // Every scale shows; ones Coax hasn't learned yet say so, so the learning is visible.
+                    ForEach(VoiceTrait.allCases) { trait in
+                        TraitScale(trait: trait,
+                                   value: profile.shownTraits.contains(trait) ? profile.value(trait) : nil,
                                    quizValue: profile.surprise != nil ? profile.quiz[trait.rawValue] : nil)
                     }
                     if profile.surprise != nil {
@@ -195,7 +197,8 @@ extension VoiceProfile {
 /// One slider shown read-only, with an optional hollow marker for the quiz answer.
 private struct TraitScale: View {
     var trait: VoiceTrait
-    var value: Double
+    /// nil = not learned yet: the track shows "learning from your texts" instead of a dot.
+    var value: Double?
     var quizValue: Double?
 
     var body: some View {
@@ -218,10 +221,17 @@ private struct TraitScale: View {
                             .frame(width: 16, height: 16)
                             .offset(x: quizValue * (geo.size.width - 16))
                     }
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 18, height: 18)
-                        .offset(x: value * (geo.size.width - 18))
+                    if let value {
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 18, height: 18)
+                            .offset(x: value * (geo.size.width - 18))
+                    } else {
+                        Text("Learning from your texts…")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                    }
                 }
                 .frame(height: 18)
             }
@@ -229,7 +239,7 @@ private struct TraitScale: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(trait.question)
-        .accessibilityValue(value < 0.4 ? trait.ends.low : value > 0.6 ? trait.ends.high : "in between")
+        .accessibilityValue(value.map { $0 < 0.4 ? trait.ends.low : $0 > 0.6 ? trait.ends.high : "in between" } ?? "still learning")
     }
 }
 
