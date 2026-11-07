@@ -11,8 +11,8 @@ struct KeyboardActions {
 
 /// Option 1, "one step at a time" (Vanessa, Nov 6): every screen shows one
 /// obvious next step and every control has words on it.
-/// - Before replies: one big "Scan my last screenshot" button, "Long chat?
-///   Scan the last 1 2 3", and a "paste text you copied" link.
+/// - Before replies: a picture of the screenshot buttons, "Scan my last
+///   screenshot" and "Paste copied text", with "Long chat? Scan the last 1 2 3" on top.
 /// - Replies: tapping a reply only picks it; Insert types it in, so a wrong tap
 ///   costs nothing. After Insert a note says it's in your message; picking
 ///   another reply and tapping Swap replaces it.
@@ -27,7 +27,7 @@ struct KeyboardView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            header
+            if !hidesHeader { header }
             Group {
                 switch state.panel {
                 case .keys:
@@ -79,6 +79,13 @@ struct KeyboardView: View {
             headerAction
         }
         .padding(.horizontal, 2)
+    }
+
+    /// The start screen has nothing for the header to do, and where iPhone already
+    /// shows its own globe under the keyboard, a second one is just clutter.
+    private var hidesHeader: Bool {
+        guard state.panel == .replies, case .waiting = model.phase else { return false }
+        return !state.showsGlobe
     }
 
     private var headerTitle: String {
@@ -256,8 +263,9 @@ private struct RepliesPanel: View {
     }
 }
 
-/// Before any replies: one big button, the screenshot count in plain words,
-/// and paste as a small backup.
+/// Before any replies: the same words as before, in direction D's look (Vanessa,
+/// Nov 7: "I like the information that was in the old version, just not the look").
+/// A picture shows which buttons take a screenshot; Coax reads a new one on its own.
 private struct StartScreen: View {
     @ObservedObject var state: KeyboardState
     var scan: () -> Void
@@ -266,56 +274,111 @@ private struct StartScreen: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 10) {
-            Text("Screenshot the chat, or scan the last one")
-                .font(.callout.weight(.semibold))
-                .multilineTextAlignment(.center)
-            Button(action: scan) {
-                Label(state.screenshotCount == 1 ? "Scan my last screenshot" : "Scan my last \(state.screenshotCount) screenshots",
-                      systemImage: "camera.viewfinder")
-                    .font(.body.weight(.bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .frame(maxWidth: .infinity, minHeight: 46)
-                    .background(Color.coax, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .foregroundStyle(Color.white)
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Reads it on your iPhone and writes 3 replies")
-            HStack(spacing: 6) {
-                Text("Long chat? Scan the last").font(.caption).foregroundStyle(.secondary)
-                ForEach(1...3, id: \.self) { n in
-                    Button("\(n)") { state.screenshotCount = n }
-                        .font(.caption.weight(.bold))
-                        .frame(width: 28, height: 24)
-                        .background(n == state.screenshotCount ? Color.coax : Color(.secondarySystemBackground),
-                                    in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                        .foregroundStyle(n == state.screenshotCount ? Color.white : Color.primary)
-                        .padding(.vertical, 10).contentShape(Rectangle()).padding(.vertical, -10)
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Scan the last \(n) screenshot\(n == 1 ? "" : "s")")
-                        .accessibilityAddTraits(n == state.screenshotCount ? .isSelected : [])
+        VStack(spacing: 8) {
+            topLine
+            HStack(spacing: 14) {
+                ScreenshotButtonsPicture()
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Screenshot the chat, or scan the last one")
+                        .font(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Side button + volume up takes a screenshot. Coax writes 3 replies.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if state.watching {
+                        HStack(spacing: 5) {
+                            Circle().fill(Color.coax).frame(width: 6, height: 6).opacity(dim ? 0.25 : 1)
+                            Text("Ready for your next screenshot")
+                        }
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .accessibilityElement(children: .combine)
+                        .onAppear {
+                            guard !reduceMotion else { return }
+                            withAnimation(.easeInOut(duration: 0.8).repeatForever()) { dim = true }
+                        }
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Button("Or paste text you copied", action: paste)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(Color.coax)
+            .padding(.horizontal, 10)
+            .frame(maxHeight: .infinity)
+            HStack(spacing: 7) {
+                Button(action: scan) {
+                    Label(state.screenshotCount == 1 ? "Scan my last screenshot" : "Scan my last \(state.screenshotCount)",
+                          systemImage: "camera.viewfinder")
+                        .font(.callout.weight(.bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(Color.coax, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .foregroundStyle(Color.white)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(state.screenshotCount == 1 ? "Scan my last screenshot"
+                                                               : "Scan my last \(state.screenshotCount) screenshots")
+                .accessibilityHint("Reads it on your iPhone and writes 3 replies")
+                Button(action: paste) {
+                    Text("Paste copied text")
+                        .font(.callout.weight(.semibold))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .foregroundStyle(Color.primary)
+                }
+                .buttonStyle(.plain)
                 .accessibilityHint("Writes replies to a message you copied")
-            if state.watching {
-                HStack(spacing: 6) {
-                    Circle().fill(Color.coax).frame(width: 6, height: 6).opacity(dim ? 0.25 : 1)
-                    Text("Ready for your next screenshot").font(.caption2).foregroundStyle(.secondary)
-                }
-                .accessibilityElement(children: .combine)
-                .onAppear {
-                    guard !reduceMotion else { return }
-                    withAnimation(.easeInOut(duration: 0.8).repeatForever()) { dim = true }
-                }
             }
         }
-        .padding(12)
-        .background(Color(.systemBackground).opacity(0.6), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 2)
+        .padding(.top, 2)
+    }
+
+    /// How many screenshots to read, for long chats.
+    private var topLine: some View {
+        HStack(spacing: 6) {
+            Spacer(minLength: 0)
+            Text("Long chat? Scan the last")
+            ForEach(1...3, id: \.self) { n in
+                Button("\(n)") { state.screenshotCount = n }
+                    .font(.caption2.weight(.bold))
+                    .frame(width: 24, height: 20)
+                    .background(n == state.screenshotCount ? Color.coax : Color(.systemBackground),
+                                in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .foregroundStyle(n == state.screenshotCount ? Color.white : Color.primary)
+                    .padding(.vertical, 12).contentShape(Rectangle()).padding(.vertical, -12)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Scan the last \(n) screenshot\(n == 1 ? "" : "s")")
+                    .accessibilityAddTraits(n == state.screenshotCount ? .isSelected : [])
+            }
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .padding(.horizontal, 6)
+    }
+}
+
+/// A plain iPhone outline with the side button and volume-up button lit in Coax blue.
+private struct ScreenshotButtonsPicture: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.coax.opacity(0.15))
+                .padding(6)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.85), lineWidth: 2.5)
+        }
+        .frame(width: 52, height: 94)
+        .overlay(alignment: .topLeading) {
+            Capsule().fill(Color.coax).frame(width: 3.5, height: 15).offset(x: -5, y: 20)   // volume up
+        }
+        .overlay(alignment: .topTrailing) {
+            Capsule().fill(Color.coax).frame(width: 3.5, height: 22).offset(x: 5, y: 26)    // side button
+        }
+        .padding(.horizontal, 6)
     }
 }
 
