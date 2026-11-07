@@ -243,6 +243,9 @@ private struct RepliesPanel: View {
                     }
                     .padding(.horizontal, 2)
                 }
+                // Often only 2 of the 3 replies fit: show the scroll bar so the third isn't missed.
+                .scrollIndicators(.visible)
+                .scrollIndicatorsFlash(onAppear: true)
                 if let selected, !alreadyIn {
                     InsertButton(number: selected + 1, swapping: state.insertedID != nil) {
                         actions.insert(model.replies[selected])
