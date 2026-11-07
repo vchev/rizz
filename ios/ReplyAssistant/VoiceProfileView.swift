@@ -99,6 +99,61 @@ struct VoiceProfileView: View {
         takingQuiz = false
     }
 
+    /// Top of the page: progress until Coax knows the user's voice, then a
+    /// 1-2 sentence profile they react to.
+    @ViewBuilder private var voiceSection: some View {
+        Section {
+            if profile.isReady {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("YOUR VOICE")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.coax)
+                    Text(profile.summary)
+                        .font(.title3.weight(.semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if profile.agreedAt != nil {
+                        Label("You said this sounds like you", systemImage: "checkmark.circle.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.coax)
+                    } else {
+                        Text("Does this sound like you?")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 10) {
+                            Button("Sounds like me") {
+                                var updated = profile
+                                updated.agreedAt = profile.messageCount
+                                updated.acceptLearned()
+                                save(updated)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Color.coax)
+                            Button("Not quite") { step = 0; takingQuiz = true }
+                                .buttonStyle(.bordered)
+                        }
+                        .controlSize(.large)
+                    }
+                }
+                .padding(.vertical, 6)
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("GETTING TO KNOW YOUR VOICE")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.coax)
+                    ProgressView(value: profile.readiness)
+                        .tint(Color.coax)
+                    Text("\(profile.messageCount) of \(VoiceProfile.confidentAt) of your texts read")
+                        .font(.headline)
+                    Text("About \(profile.screenshotsToGo) more screenshot\(profile.screenshotsToGo == 1 ? "" : "s") and Coax will describe your voice for you to check. Your quiz answers shape replies until then.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.vertical, 6)
+            }
+        }
+    }
+
     private func binding(_ trait: VoiceTrait) -> Binding<Double> {
         Binding(get: { answers[trait.rawValue] ?? 0.5 }, set: { answers[trait.rawValue] = $0 })
     }
@@ -111,6 +166,7 @@ struct VoiceProfileView: View {
 
     private var card: some View {
         List {
+            voiceSection
             Section {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(profile.surprise == nil ? "YOUR TEXTING STYLE" : "YOUR TEXTING STYLE · UPDATED")
@@ -168,9 +224,7 @@ struct VoiceProfileView: View {
             } header: {
                 Text("Learned from")
             } footer: {
-                Text(profile.messageCount < VoiceProfile.confidentAt
-                     ? "Still learning: about \(Int(VoiceProfile.messagesForFullWeight)) of your own texts make a full profile. Coax picks them up from the screenshots you already take for replies. Nothing extra to do."
-                     : "Your own messages in the screenshots you take for replies keep this up to date.")
+                Text("Coax picks up your own texts from the screenshots you already take for replies and keeps learning. Nothing extra to do.")
             }
 
             Section {
@@ -196,9 +250,9 @@ struct VoiceProfileView: View {
     }
 
     private var messagesLine: String {
-        // Your own texts (not screenshots), counted once each. 40 = a full profile.
-        let full = Int(VoiceProfile.messagesForFullWeight)
-        return profile.messageCount >= full ? "\(profile.messageCount) · full profile" : "\(profile.messageCount) of \(full)"
+        // Your own texts (not screenshots), counted once each; the same target as the progress bar.
+        let ready = VoiceProfile.confidentAt
+        return profile.messageCount >= ready ? "\(profile.messageCount)" : "\(profile.messageCount) of \(ready)"
     }
 
     private func save(_ updated: VoiceProfile) {

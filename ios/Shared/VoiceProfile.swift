@@ -77,6 +77,8 @@ struct VoiceProfile: Codable, Equatable {
     var quiz: [String: Double] = [:]
     /// When true, the user chose "Go back to my quiz": learned values are ignored.
     var trustQuiz = false
+    /// How many texts Coax had read when the user tapped "Sounds like me" (nil = not yet).
+    var agreedAt: Int?
 
     // What Coax has learned from the user's own messages.
     var messageCount = 0
@@ -98,6 +100,29 @@ struct VoiceProfile: Codable, Equatable {
     static let confidentAt = 20
 
     var hasQuiz: Bool { !quiz.isEmpty }
+
+    /// Coax has read enough of the user's texts to describe their voice.
+    var isReady: Bool { messageCount >= Self.confidentAt }
+
+    /// 0...1 toward a ready profile, for the progress bar.
+    var readiness: Double { min(Double(messageCount) / Double(Self.confidentAt), 1) }
+
+    /// Roughly how many more screenshots until ready (a screenshot holds ~3 of the user's texts).
+    var screenshotsToGo: Int { max(Int((Double(Self.confidentAt - messageCount) / 3).rounded(.up)), 1) }
+
+    /// The 1-2 sentence voice profile the user reacts to once Coax is ready.
+    var summary: String {
+        func level(_ t: VoiceTrait) -> Int { value(t) <= 1.0 / 3 ? -1 : value(t) >= 2.0 / 3 ? 1 : 0 }
+        let length = ["You keep your texts short", "You write medium-length texts", "You write full, chatty messages"][level(.length) + 1]
+        let caps = ["in all lowercase", "", "with proper capitals"][level(.caps) + 1]
+        let emoji = ["rarely with emoji.", "with the odd emoji.", "and emoji are part of how you talk."][level(.emoji) + 1]
+        let first = [length, caps].filter { !$0.isEmpty }.joined(separator: " ") + ", " + emoji
+        let humour = ["You're sincere and straightforward", "You mix jokes with sincerity", "You're playful and like to tease"][level(.humour) + 1]
+        let forward = ["and play it cool", "", "and say what you feel"][level(.forward) + 1]
+        let looking = [", keeping things casual.", ".", ", looking for something real."][level(.looking) + 1]
+        let second = [humour, forward].filter { !$0.isEmpty }.joined(separator: " ") + looking
+        return first + " " + second
+    }
 
     /// What the user's messages say, or nil when there aren't enough yet.
     func learned(_ trait: VoiceTrait) -> Double? {
