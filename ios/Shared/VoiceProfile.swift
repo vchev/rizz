@@ -114,6 +114,22 @@ struct VoiceProfile: Codable, Equatable {
     /// Roughly how many more screenshots until ready (a screenshot holds ~3 of the user's texts).
     var screenshotsToGo: Int { max(Int((Double(Self.confidentAt - messageCount) / 3).rounded(.up)), 1) }
 
+    /// A named texting type (8 of them), from three splits: short or long texts,
+    /// sincere or teasing, casual (lowercase) or polished (capitals).
+    var typeName: String {
+        let long = value(.length) >= 0.5, teasing = value(.humour) >= 0.5, polished = value(.caps) >= 0.5
+        switch (long, teasing, polished) {
+        case (false, true, false): return "The Dry Teaser"
+        case (false, true, true): return "The Quick Wit"
+        case (false, false, false): return "The Chill One"
+        case (false, false, true): return "The Straight Shooter"
+        case (true, true, false): return "The Storyteller"
+        case (true, true, true): return "The Charmer"
+        case (true, false, false): return "The Open Book"
+        case (true, false, true): return "The Paragraph Texter"
+        }
+    }
+
     /// The 1-2 sentence voice profile the user reacts to once Coax is ready.
     var summary: String {
         func level(_ t: VoiceTrait) -> Int { value(t) <= 1.0 / 3 ? -1 : value(t) >= 2.0 / 3 ? 1 : 0 }

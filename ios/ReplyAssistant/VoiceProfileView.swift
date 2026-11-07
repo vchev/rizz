@@ -105,9 +105,11 @@ struct VoiceProfileView: View {
         Section {
             if profile.isReady {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("YOUR VOICE")
+                    Text("YOUR TEXTING TYPE")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color.coax)
+                    Text(profile.typeName)
+                        .font(.largeTitle.bold())
                     Text(profile.summary)
                         .font(.title3.weight(.semibold))
                         .fixedSize(horizontal: false, vertical: true)
@@ -137,9 +139,11 @@ struct VoiceProfileView: View {
                 .padding(.vertical, 6)
             } else {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("GETTING TO KNOW YOUR VOICE")
+                    Text("YOUR TEXTING TYPE SO FAR")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Color.coax)
+                    Text(profile.typeName)
+                        .font(.title.bold())
                     ProgressView(value: profile.readiness)
                         .tint(Color.coax)
                     Text("\(profile.messageCount) of \(VoiceProfile.confidentAt) of your texts read")
@@ -263,7 +267,7 @@ struct VoiceProfileView: View {
 
 extension VoiceProfile {
     var shareText: String {
-        "My texting style: \(headline.lowercased()). " + chips.joined(separator: ", ") + ". Found by Coax, replies that sound like you."
+        "My texting type: \(typeName). " + chips.joined(separator: ", ") + ". Find yours with Coax."
     }
 }
 
