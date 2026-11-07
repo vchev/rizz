@@ -33,12 +33,12 @@ enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
     /// Words at the 0 end and the 1 end of the slider.
     var ends: (low: String, high: String) {
         switch self {
-        case .length: return ("quick texts ⚡️", "full paragraphs 📝")
-        case .caps: return ("all lowercase 😎", "Proper Sentences. ✍️")
-        case .emoji: return ("rarely 🙂", "all the time 😂")
-        case .humour: return ("sincere 🤍", "teasing 😏")
-        case .forward: return ("play it cool 🧊", "say it 💬")
-        case .looking: return ("something casual 🍸", "a relationship 💞")
+        case .length: return ("quick texts", "full paragraphs")
+        case .caps: return ("all lowercase", "Proper Sentences.")
+        case .emoji: return ("rarely", "all the time")
+        case .humour: return ("sincere", "teasing")
+        case .forward: return ("play it cool", "say it")
+        case .looking: return ("something casual", "a relationship")
         }
     }
 
