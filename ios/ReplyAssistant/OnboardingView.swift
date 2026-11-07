@@ -141,7 +141,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Promise(icon: "iphone", text: "Screenshots are read on your iPhone")
                 Promise(icon: "checkmark", text: "Only the chat text is sent, never the image")
-                Promise(icon: "checkmark", text: "Replies are written by a third-party AI")
+                Promise(icon: "checkmark", text: "Replies come from a trusted third-party AI that never trains on your chats")
                 Promise(icon: "checkmark", text: "Nothing is kept")
             }
         } bottom: {

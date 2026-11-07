@@ -104,7 +104,7 @@ private struct PrivacyDetail: View {
         List {
             Section {
                 Text("Screenshots are read on your iPhone. Coax never uploads the image.")
-                Text("When you ask for replies, only the chat text goes to a third-party AI service to write them. It isn't kept.")
+                Text("When you ask for replies, only the chat text is sent, to a third-party AI we chose because it never trains on your chats and keeps nothing. No account, and your history stays on your phone.")
                 Text("Coax never saves what you type on its keyboard.")
                 Text("No account and no analytics. Your chats stay on this iPhone.")
             }

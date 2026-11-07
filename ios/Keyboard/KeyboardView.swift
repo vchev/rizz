@@ -598,16 +598,23 @@ private struct TouchDownKey<Label: View>: View {
     var action: () -> Void
     @ViewBuilder var label: (_ pressed: Bool) -> Label
     @State private var pressed = false
+    /// What the key shows. Stays on a little after a quick tap: iOS can deliver
+    /// touch-down and touch-up together (fast typing, keys near the screen edge),
+    /// which would otherwise flip the highlight on and off before it's drawn.
+    @State private var lit = false
+    @State private var releaseTask: Task<Void, Never>?
     @State private var repeatTask: Task<Void, Never>?
 
     var body: some View {
-        label(pressed)
+        label(lit)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in
                         guard !pressed else { return }
                         pressed = true
+                        releaseTask?.cancel()
+                        lit = true
                         UIDevice.current.playInputClick()
                         action()
                         if repeats { startRepeating() }
@@ -616,6 +623,11 @@ private struct TouchDownKey<Label: View>: View {
                         pressed = false
                         repeatTask?.cancel()
                         repeatTask = nil
+                        releaseTask?.cancel()
+                        releaseTask = Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 110_000_000)
+                            if !Task.isCancelled && !pressed { lit = false }
+                        }
                     }
             )
             .accessibilityAddTraits(.isButton)
@@ -643,7 +655,7 @@ private struct CharacterKey: View {
             Text(label)
                 .font(label.count == 1 ? .title3 : .callout)
                 .frame(maxWidth: .infinity, minHeight: 42)
-                .background(pressed && label.count > 1 ? Color(.systemGray4) : Color(.systemBackground),
+                .background(pressed ? Color(.systemGray4) : Color(.systemBackground),
                             in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .foregroundStyle(Color.primary)
                 .shadow(color: .black.opacity(0.25), radius: 0, x: 0, y: 1)
