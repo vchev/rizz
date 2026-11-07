@@ -265,7 +265,7 @@ private struct RepliesPanel: View {
 
 /// Before any replies: the same words as before, in direction D's look (Vanessa,
 /// Nov 7: "I like the information that was in the old version, just not the look").
-/// A picture shows which buttons take a screenshot; Coax reads a new one on its own.
+/// No how-to text (Vanessa: people know how to screenshot); Coax reads a new one on its own.
 private struct StartScreen: View {
     @ObservedObject var state: KeyboardState
     var scan: () -> Void
@@ -281,11 +281,7 @@ private struct StartScreen: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Screenshot the chat, or scan the last one")
-                        .font(.headline)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("Side button + volume up takes a screenshot. Coax writes 3 replies.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(.title3.weight(.bold))
                         .fixedSize(horizontal: false, vertical: true)
                     if state.watching {
                         HStack(spacing: 5) {
