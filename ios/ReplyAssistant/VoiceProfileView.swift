@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// "Your texting style" (Sprint 3 preview): a short quiz (pick a sample text + 3 sliders), then a style card
+/// "Your texting style" (Sprint 3 preview): a short quiz (type one reply + 3 sliders), then a style card
 /// that keeps improving from the user's own messages in their screenshots.
 /// Reached from the main screen in test builds only.
 struct VoiceProfileView: View {
@@ -11,6 +11,7 @@ struct VoiceProfileView: View {
         let saved = VoiceSettings.profile.quiz
         return saved.isEmpty ? Dictionary(uniqueKeysWithValues: VoiceTrait.quizTraits.map { ($0.rawValue, 0.5) }) : saved
     }()
+    @State private var firstText = ""
     @State private var enabled = VoiceSettings.isEnabled
     @State private var learning = VoiceSettings.isLearning
 
@@ -42,28 +43,19 @@ struct VoiceProfileView: View {
                         .foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Which sounds most like you?").font(.headline)
-                    ForEach(StyleSample.all) { sample in
-                        let picked = sample.answers.allSatisfy { answers[$0.key] == $0.value }
-                        Button {
-                            answers.merge(sample.answers) { _, new in new }
-                        } label: {
-                            HStack {
-                                Text(sample.text)
-                                    .padding(.horizontal, 14).padding(.vertical, 9)
-                                    .foregroundStyle(.white)
-                                    .background(Color.coax, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                                Spacer(minLength: 8)
-                                Image(systemName: picked ? "checkmark.circle.fill" : "circle")
-                                    .font(.title3)
-                                    .foregroundStyle(picked ? Color.coax : Color.secondary)
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(sample.text)
-                        .accessibilityAddTraits(picked ? .isSelected : [])
-                    }
+                    Text("Reply like you would").font(.headline)
+                    Text(FirstText.prompt)
+                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    TextField("Type your reply", text: $firstText, axis: .vertical)
+                        .lineLimit(1...4)
+                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .accessibilityIdentifier("voiceFirstText")
+                    Text("Coax reads how you write it (length, capitals, emoji). Skip it if you like.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(18)
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -89,7 +81,8 @@ struct VoiceProfileView: View {
 
                 Button {
                     var updated = VoiceSettings.profile
-                    updated.quiz = answers
+                    updated.quiz = answers.merging(FirstText.answers(from: firstText)) { _, measured in measured }
+                    updated.learn(from: [ChatMessage(speaker: .you, text: firstText)])   // first example text
                     updated.trustQuiz = false
                     save(updated)
                     VoiceSettings.isEnabled = true

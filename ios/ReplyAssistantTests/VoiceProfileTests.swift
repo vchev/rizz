@@ -60,12 +60,16 @@ final class VoiceProfileTests: XCTestCase {
         XCTAssertEqual(profile.payload?.looking, 0.2)
     }
 
-    func testSamplePickSeedsWhatTextsWillLearn() {
-        var profile = VoiceProfile()
-        profile.quiz = StyleSample.all[0].answers
-        XCTAssertEqual(profile.value(.length), 0.1, accuracy: 0.001)
-        XCTAssertEqual(profile.payload?.caps, 0)
-        XCTAssertEqual(Set(StyleSample.all.flatMap { $0.answers.keys }), ["length", "caps", "emoji"])
+    func testFirstTextIsMeasuredLikeRealTexts() {
+        XCTAssertEqual(FirstText.answers(from: "  "), [:])
+        let casual = FirstText.answers(from: "nothing much lol 😂")
+        XCTAssertLessThan(casual["length"] ?? 1, 0.1)
+        XCTAssertEqual(casual["caps"], 0.1)
+        XCTAssertEqual(casual["emoji"], 0.8)
+        let proper = FirstText.answers(from: "Not much! Probably a long walk on Saturday and brunch with friends on Sunday, you?")
+        XCTAssertGreaterThan(proper["length"] ?? 0, 0.5)
+        XCTAssertEqual(proper["caps"], 0.9)
+        XCTAssertEqual(proper["emoji"], 0.2)
     }
 
     func testPayloadOnlyWhenThereIsSomething() {

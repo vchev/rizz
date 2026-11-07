@@ -56,22 +56,23 @@ enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
     static var quizTraits: [VoiceTrait] { allCases.filter { !$0.isMeasured } }
 }
 
-/// "Which sounds most like you?": one tap at setup gives length, capitals and emoji
-/// a starting point (there are no texts yet), until the user's own texts take over.
-struct StyleSample: Identifiable, Equatable {
-    var id: String { text }
-    let text: String
-    let length: Double, caps: Double, emoji: Double
+/// Setup has no texts yet, so the quiz asks for one: "Reply like you would".
+/// The typed line is measured the same way as the user's real texts, seeds
+/// length, capitals and emoji, and becomes their first example text.
+enum FirstText {
+    static let prompt = "what are you up to this weekend?"
 
-    static let all = [
-        StyleSample(text: "ya same lol", length: 0.1, caps: 0.0, emoji: 0.1),
-        StyleSample(text: "Haha same! What are you up to this weekend?", length: 0.6, caps: 1.0, emoji: 0.1),
-        StyleSample(text: "omg same 😂😂 we need to go", length: 0.35, caps: 0.0, emoji: 0.9),
-    ]
-
-    /// The quiz answers this pick stands for.
-    var answers: [String: Double] {
-        [VoiceTrait.length.rawValue: length, VoiceTrait.caps.rawValue: caps, VoiceTrait.emoji.rawValue: emoji]
+    /// Quiz answers measured from one typed text, or [:] when it's empty.
+    static func answers(from text: String) -> [String: Double] {
+        let words = text.split(whereSeparator: \.isWhitespace)
+        guard !words.isEmpty else { return [:] }
+        var out = [VoiceTrait.length.rawValue: min(max((Double(words.count) - 3) / 17, 0), 1)]
+        if let first = text.first(where: { $0.isLetter }) {
+            out[VoiceTrait.caps.rawValue] = first.isUppercase ? 0.9 : 0.1
+        }
+        let hasEmoji = text.unicodeScalars.contains { $0.properties.isEmojiPresentation }
+        out[VoiceTrait.emoji.rawValue] = hasEmoji ? 0.8 : 0.2
+        return out
     }
 }
 
