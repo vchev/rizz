@@ -181,8 +181,17 @@ class Suggest(unittest.TestCase):
         self.assertIn("What the user wants to say", seen[0])
         self.assertIn("\"say no, but 'funny'\"", seen[0])
         self.assertIn("every reply is funny", seen[0])
+        self.assertIn("The mood is only how it sounds", seen[0])
         reply.suggest_reply_items(CHAT, intent="   ", call=spy, config=CONFIG)
         self.assertNotIn("What the user wants to say", seen[1])
+        self.assertNotIn("The mood is only how it sounds", seen[1])
+        # Free text is a brief to brainstorm from; a mood alone gets none of this.
+        reply.suggest_reply_items(CHAT, intent="tell him no but nicely", tone="funny", call=spy, config=CONFIG)
+        self.assertIn("brainstorm different ways", seen[2])
+        self.assertIn("it is a real no", seen[2])
+        self.assertIn("beats the usual rules about saying yes", seen[2])
+        reply.suggest_reply_items(CHAT, tone="funny", call=spy, config=CONFIG)
+        self.assertNotIn("The mood is only how it sounds", seen[3])
         with self.assertRaises(reply.BadRequest):
             reply.suggest_reply_items(CHAT, intent="x" * 201, call=spy, config=CONFIG)
         with self.assertRaises(reply.BadRequest):

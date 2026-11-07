@@ -1,6 +1,6 @@
 """Prompts for the reply engine. Bump PROMPT_VERSION whenever a prompt changes."""
 
-PROMPT_VERSION = 11
+PROMPT_VERSION = 12
 
 SYSTEM_PROMPT = """You write the user's next text message in a dating conversation.
 
@@ -203,9 +203,18 @@ def user_prompt(messages, platform, n, tone=None, replying_to=None, voice=None, 
     if intent:
         parts.append('What the user wants to say (their own idea, typed into Coax): "%s". Every reply says '
                      "that, in their voice, each in a different way. Keep their meaning; if part of it breaks the "
-                     "rules above, leave that part out." % intent)
+                     "rules above, leave that part out. This beats the usual rules about saying yes to plans and "
+                     "keeping things going. Make the point clear in the first few words, so the match can't "
+                     "miss it." % intent)
+        parts.append("Treat it as a brief, not a script: brainstorm different ways to say it (different "
+                     "angles, not the same line reworded), and don't just repeat their words back. If it is a "
+                     "no, it is a real no: kind, with no maybe, no counter-offer and no made-up excuse. If it "
+                     "is a yes or a plan, make it clear and specific.")
     if tone in TONE_RULES:
         parts.append(TONE_RULES[tone])
+        if intent:
+            parts.append("The mood is only how it sounds: a %s reply still says what the user wants, "
+                         "plainly. Never let the joke or the vibe blur it." % tone)
     elif favorite_mood in MOODS and n > 1:
         parts.append('The user most often picks "%s" replies, so make one of the replies %s.'
                      % (favorite_mood, favorite_mood))
