@@ -172,6 +172,22 @@ class Suggest(unittest.TestCase):
         for user in seen[1:]:
             self.assertNotIn("most often picks", user)
 
+    def test_intent_steers_every_reply(self):
+        seen = []
+        def spy(system, user, config):
+            seen.append(user)
+            return reply.stand_in_model(system, user, config)
+        reply.suggest_reply_items(CHAT, intent='  say no,\n but "funny" ', tone="funny", call=spy, config=CONFIG)
+        self.assertIn("What the user wants to say", seen[0])
+        self.assertIn("\"say no, but 'funny'\"", seen[0])
+        self.assertIn("every reply is funny", seen[0])
+        reply.suggest_reply_items(CHAT, intent="   ", call=spy, config=CONFIG)
+        self.assertNotIn("What the user wants to say", seen[1])
+        with self.assertRaises(reply.BadRequest):
+            reply.suggest_reply_items(CHAT, intent="x" * 201, call=spy, config=CONFIG)
+        with self.assertRaises(reply.BadRequest):
+            reply.suggest_reply_items(CHAT, intent=["no"], call=spy, config=CONFIG)
+
     def test_api_passes_favorite_mood(self):
         seen = []
         def spy(system, user, config):

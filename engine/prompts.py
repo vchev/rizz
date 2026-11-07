@@ -1,6 +1,6 @@
 """Prompts for the reply engine. Bump PROMPT_VERSION whenever a prompt changes."""
 
-PROMPT_VERSION = 10
+PROMPT_VERSION = 11
 
 SYSTEM_PROMPT = """You write the user's next text message in a dating conversation.
 
@@ -170,7 +170,8 @@ def unanswered_match_messages(messages):
 MOODS = ("playful", "flirty", "sweet", "chill", "bold", "funny")
 
 
-def user_prompt(messages, platform, n, tone=None, replying_to=None, voice=None, favorite_mood=None):
+def user_prompt(messages, platform, n, tone=None, replying_to=None, voice=None, favorite_mood=None,
+                intent=None):
     """messages: list of {"speaker": "you"|"them", "text": str, "reply_to": str?}, oldest first."""
     app = PLATFORM_NAMES.get((platform or "").lower(), "a dating app")
     lines = []
@@ -199,6 +200,10 @@ def user_prompt(messages, platform, n, tone=None, replying_to=None, voice=None, 
     elif messages and messages[-1]["speaker"] == "you":
         parts.append("The user sent the last message. Write a natural follow-up they could send next "
                      "(adding to their own message, or moving things along), not a reply to themselves.")
+    if intent:
+        parts.append('What the user wants to say (their own idea, typed into Coax): "%s". Every reply says '
+                     "that, in their voice, each in a different way. Keep their meaning; if part of it breaks the "
+                     "rules above, leave that part out." % intent)
     if tone in TONE_RULES:
         parts.append(TONE_RULES[tone])
     elif favorite_mood in MOODS and n > 1:

@@ -30,6 +30,11 @@ final class ReplyFlowModel: ObservableObject {
     @Published var timing: String?
     /// The mood tag the current replies came from (nil = mixed moods).
     @Published var tone: ReplyTone?
+    /// What the person typed they want to say ("say no, but funny"). Empty = nothing.
+    /// Sent with every reply request until it's cleared or a new chat is read.
+    @Published var intent = ""
+    /// The engine takes up to this many characters.
+    static let maxIntent = 200
     private var readSeconds: Double?
     /// The message the user started a quoted reply to (Bumble's bar above the text box).
     var replyingTo: String?
@@ -129,6 +134,7 @@ final class ReplyFlowModel: ObservableObject {
         phase = .reading
         replies = []
         messages = []
+        intent = ""
         do {
             let started = Date()
             var all: [ChatMessage] = []
@@ -157,6 +163,7 @@ final class ReplyFlowModel: ObservableObject {
         phase = .reading
         replies = []
         messages = []
+        intent = ""
         previews = []
         do {
             let started = Date()
@@ -281,8 +288,9 @@ final class ReplyFlowModel: ObservableObject {
         let started = Date()
         defer { readSeconds = nil }
         do {
+            let wanted = String(intent.trimmingCharacters(in: .whitespacesAndNewlines).prefix(Self.maxIntent))
             replies = try await service.suggestReplies(for: Array(messages.suffix(Self.maxMessagesSent)), platform: "imessage", tone: tone,
-                                                       replyingTo: replyingTo)
+                                                       replyingTo: replyingTo, intent: wanted.isEmpty ? nil : wanted)
             editedSinceReplies = false
             HabitStore.update {
                 $0.replySets += 1
@@ -295,6 +303,12 @@ final class ReplyFlowModel: ObservableObject {
         } catch {
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    /// The person typed what they want to say: fresh replies that say it (in the current mood).
+    func say(_ text: String) async {
+        intent = text
+        await generate(tone: tone)
     }
 
     /// The person typed in or copied this reply.
@@ -335,6 +349,7 @@ final class ReplyFlowModel: ObservableObject {
         timing = nil
         phase = .waiting
         messages = []
+        intent = ""
         replies = []
         readCount = 0
         chatID = nil
