@@ -98,6 +98,8 @@ struct RepliesView: View {
                         copiedID = reply.id
                     }
                 }
+                SayPickRow(model: model) { copiedID = nil }
+                    .padding(.top, 4)
                 HStack(spacing: 6) {
                     MoodTagRow(model: model) { copiedID = nil }
                     TagChip(title: "New ones", systemImage: "arrow.clockwise") { regenerate(model.tone) }

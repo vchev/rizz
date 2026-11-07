@@ -43,6 +43,8 @@ struct KeyboardView: View {
                     }
                 case .fullAccessHelp:
                     FullAccessHelp()
+                case .say:
+                    SayEditor(model: model, state: state, actions: actions)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -84,6 +86,8 @@ struct KeyboardView: View {
         case .replies:
             guard case .done = model.phase, !model.replies.isEmpty else { return "" }
             return state.insertedID == nil ? "Pick a reply" : "Changed your mind?"
+        case .say:
+            return "What should it say?"
         case .keys, .review, .fullAccessHelp:
             return ""
         }
@@ -103,6 +107,17 @@ struct KeyboardView: View {
                 .accessibilityLabel(state.screenshotCount == 1 ? "Scan my last screenshot again"
                                                                : "Scan my last \(state.screenshotCount) screenshots again")
             }
+        case .say:
+            HeaderLink(title: model.hasOwnIntent ? "Remove" : "Cancel",
+                       systemImage: model.hasOwnIntent ? "xmark" : "chevron.left") {
+                state.panel = .replies
+                if model.hasOwnIntent {
+                    state.insertedID = nil
+                    state.selectedID = nil
+                    Task { await model.clearIntent() }
+                }
+            }
+            .accessibilityLabel(model.hasOwnIntent ? "Remove your line" : "Cancel, back to replies")
         case .review:
             EmptyView()
         }
@@ -201,7 +216,13 @@ private struct RepliesPanel: View {
                         actions.insert(model.replies[selected])
                     }
                 }
-                MoodTagRow(model: model, background: Color(.systemBackground)) {
+                MoodTagRow(model: model, background: Color(.systemBackground), sayPicks: true,
+                           onYourOwn: {
+                               state.sayDraft = model.hasOwnIntent ? model.intent : ""
+                               state.shifted = state.sayDraft.isEmpty
+                               state.showingSymbols = false
+                               state.panel = .say
+                           }) {
                     state.insertedID = nil
                     state.selectedID = nil
                 }
@@ -481,6 +502,80 @@ private struct LetterKeys: View {
                 }
             }
         }
+    }
+}
+
+/// "Your own": type what the reply should say on Coax's letter keys, then Write.
+/// Return also writes. Nothing typed here goes into the chat.
+private struct SayEditor: View {
+    @ObservedObject var model: ReplyFlowModel
+    @ObservedObject var state: KeyboardState
+    var actions: KeyboardActions
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 6) {
+                Group {
+                    if state.sayDraft.isEmpty {
+                        Text("Like: say I'm busy, but free Sunday")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(state.sayDraft + "|")
+                            .foregroundStyle(.primary)
+                    }
+                }
+                .font(.callout)
+                .lineLimit(1)
+                .truncationMode(.head)
+                .padding(.horizontal, 10)
+                .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+                .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .accessibilityLabel(Text(state.sayDraft.isEmpty ? "What should the reply say? Empty" : state.sayDraft))
+
+                Button(action: write) {
+                    Text("Write")
+                        .font(.callout.weight(.bold))
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 34)
+                        .background(Color.coax, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .foregroundStyle(Color.white)
+                }
+                .buttonStyle(.plain)
+                .disabled(trimmed.isEmpty)
+                .opacity(trimmed.isEmpty ? 0.45 : 1)
+                .accessibilityHint("Gets replies that say this")
+            }
+            LetterKeys(state: state, actions: KeyboardActions(
+                getRepliesFromScreenshots: actions.getRepliesFromScreenshots,
+                getReplies: actions.getReplies,
+                insert: actions.insert,
+                type: type,
+                deleteBackward: { if !state.sayDraft.isEmpty { state.sayDraft.removeLast() }; autoCapital() },
+                nextKeyboard: actions.nextKeyboard))
+        }
+    }
+
+    private var trimmed: String { state.sayDraft.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    private func type(_ text: String) {
+        if text == "\n" { write(); return }
+        guard state.sayDraft.count < ReplyFlowModel.maxIntent else { return }
+        state.sayDraft += text
+        autoCapital()
+    }
+
+    private func autoCapital() {
+        let shift = Typing.startsSentence(state.sayDraft)
+        if state.shifted != shift { state.shifted = shift }
+    }
+
+    private func write() {
+        guard !trimmed.isEmpty else { return }
+        let line = trimmed
+        state.insertedID = nil
+        state.selectedID = nil
+        state.panel = .replies
+        Task { await model.say(line) }
     }
 }
 
