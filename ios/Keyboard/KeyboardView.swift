@@ -120,7 +120,7 @@ struct KeyboardView: View {
             }
             if showsScanAgain {
                 // Reads your latest screenshot(s) again, e.g. after new messages came in.
-                // Not a refresh of the replies ("New ones" does that), so no refresh arrow.
+                // Not a refresh of the replies (tapping a mood does that), so no refresh arrow.
                 HeaderLink(title: "New screenshot", systemImage: "camera.viewfinder") {
                     start(actions.getRepliesFromScreenshots)
                 }
