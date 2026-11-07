@@ -18,6 +18,10 @@ enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// What the quiz asks (Vanessa, Nov 7: no "looking for" or "when you like someone").
+    /// forward stays in the model: it learns quietly from the moods the user picks.
+    static let asked: [VoiceTrait] = [.length, .caps, .emoji, .humour]
+
     /// Short name for the style card.
     var name: String {
         switch self {
@@ -33,12 +37,12 @@ enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
     /// Words at the 0 end and the 1 end of the slider.
     var ends: (low: String, high: String) {
         switch self {
-        case .length: return ("quick texts ⚡️", "full paragraphs 📝")
-        case .caps: return ("all lowercase 😎", "Proper Sentences. ✍️")
-        case .emoji: return ("rarely 🙂", "all the time 😂")
-        case .humour: return ("sincere 🤍", "teasing 😏")
-        case .forward: return ("play it cool 🧊", "say it 💬")
-        case .looking: return ("something casual 🍸", "a relationship 💞")
+        case .length: return ("quick texts", "full paragraphs")
+        case .caps: return ("all lowercase", "Proper Sentences.")
+        case .emoji: return ("rarely", "all the time")
+        case .humour: return ("sincere", "teasing")
+        case .forward: return ("play it cool", "say it")
+        case .looking: return ("something casual", "a relationship")
         }
     }
 
@@ -126,6 +130,22 @@ struct VoiceProfile: Codable, Equatable {
 
     /// Roughly how many more screenshots until ready (a screenshot holds ~3 of the user's texts).
     var screenshotsToGo: Int { max(Int((Double(Self.confidentAt - messageCount) / 3).rounded(.up)), 1) }
+
+    /// A named texting type (8 of them), from three splits: short or long texts,
+    /// sincere or teasing, casual (lowercase) or polished (capitals).
+    var typeName: String {
+        let long = value(.length) >= 0.5, teasing = value(.humour) >= 0.5, polished = value(.caps) >= 0.5
+        switch (long, teasing, polished) {
+        case (false, true, false): return "The Dry Teaser"
+        case (false, true, true): return "The Quick Wit"
+        case (false, false, false): return "The Chill One"
+        case (false, false, true): return "The Straight Shooter"
+        case (true, true, false): return "The Storyteller"
+        case (true, true, true): return "The Charmer"
+        case (true, false, false): return "The Open Book"
+        case (true, false, true): return "The Paragraph Texter"
+        }
+    }
 
     /// The 1-2 sentence voice profile the user reacts to once Coax is ready.
     var summary: String {

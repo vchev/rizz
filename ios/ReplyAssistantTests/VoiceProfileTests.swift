@@ -58,6 +58,22 @@ final class VoiceProfileTests: XCTestCase {
         XCTAssertEqual(profile.payload?.looking, 0.2)
     }
 
+    func testQuizAsksFourQuestions() {
+        XCTAssertEqual(VoiceTrait.asked, [.length, .caps, .emoji, .humour])
+        var profile = VoiceProfile()
+        profile.quiz = ["humour": 0.9]
+        profile.learn(from: mine((1...20).map { "ok \($0)" }))
+        XCTAssertEqual(profile.summary, "You keep your texts short in all lowercase, rarely with emoji. You're playful and like to tease.")
+    }
+
+    func testTextingTypeNames() {
+        var profile = VoiceProfile()
+        profile.quiz = ["length": 0.1, "humour": 0.9, "caps": 0.1]
+        XCTAssertEqual(profile.typeName, "The Dry Teaser")
+        profile.quiz = ["length": 0.9, "humour": 0.1, "caps": 0.9]
+        XCTAssertEqual(profile.typeName, "The Paragraph Texter")
+    }
+
     func testVoiceSummaryOnceReady() {
         var profile = VoiceProfile()
         profile.quiz = ["humour": 0.9, "forward": 0.1, "looking": 0.9]
