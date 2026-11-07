@@ -117,8 +117,24 @@ enum AccessStore {
 
     static var defaults: UserDefaults { AgeSettings.defaults }
 
-    /// UI tests never hit the paywall.
-    static var isOff: Bool { ProcessInfo.processInfo.arguments.contains("-uiTesting") }
+    private static let testPaywallKey = "coax.testPaywall"
+
+    /// UI tests never hit the paywall. Builds run from Xcode (Debug) don't either, so
+    /// Vanessa's own phone never locks, unless "Test the paywall" is turned on.
+    static var isOff: Bool {
+        if ProcessInfo.processInfo.arguments.contains("-uiTesting") { return true }
+        #if DEBUG
+        return !testPaywall
+        #else
+        return false
+        #endif
+    }
+
+    /// Debug builds only: make the paywall rules apply, to try the paywall screen.
+    static var testPaywall: Bool {
+        get { defaults.bool(forKey: testPaywallKey) }
+        set { defaults.set(newValue, forKey: testPaywallKey) }
+    }
 
     /// This install's mode: picked once, then kept.
     static var mode: PaywallMode {
@@ -169,7 +185,7 @@ enum AccessStore {
     }
 
     static func reset() {
-        for key in [modeKey, ledgerKey, subscribedUntilKey] { defaults.removeObject(forKey: key) }
+        for key in [modeKey, ledgerKey, subscribedUntilKey, testPaywallKey] { defaults.removeObject(forKey: key) }
     }
 }
 
