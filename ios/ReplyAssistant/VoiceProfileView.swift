@@ -199,7 +199,9 @@ private struct TraitScale: View {
     var quizValue: Double?
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(trait.question)
+                .font(.subheadline.weight(.semibold))
             HStack {
                 Text(trait.ends.low)
                 Spacer()
