@@ -142,13 +142,13 @@ struct VoiceProfileView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                LabeledContent("Your screenshots", value: messagesLine)
+                LabeledContent("Your own texts read", value: messagesLine)
                 Button("Retake the quiz") { takingQuiz = true }
             } header: {
                 Text("Learned from")
             } footer: {
                 Text(profile.messageCount < VoiceProfile.confidentAt
-                     ? "Still learning. Coax gets more like you as you use it: your own messages in the screenshots you already take for replies tune this. No uploading."
+                     ? "Still learning: about \(Int(VoiceProfile.messagesForFullWeight)) of your own texts make a full profile. Coax picks them up from the screenshots you already take for replies. Nothing extra to do."
                      : "Your own messages in the screenshots you take for replies keep this up to date.")
             }
 
@@ -175,7 +175,9 @@ struct VoiceProfileView: View {
     }
 
     private var messagesLine: String {
-        profile.messageCount == 1 ? "1 of your messages" : "\(profile.messageCount) of your messages"
+        // Your own texts (not screenshots), counted once each. 40 = a full profile.
+        let full = Int(VoiceProfile.messagesForFullWeight)
+        return profile.messageCount >= full ? "\(profile.messageCount) · full profile" : "\(profile.messageCount) of \(full)"
     }
 
     private func save(_ updated: VoiceProfile) {
