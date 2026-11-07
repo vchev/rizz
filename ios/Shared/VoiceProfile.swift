@@ -2,30 +2,43 @@ import Foundation
 
 /// One thing the voice profile tracks. Each is a slider from 0 to 1.
 enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
-    case length, caps, humour, emoji, forward, looking
+    // Quiz order: how you write first, then how you flirt.
+    case length, caps, emoji, humour, forward, looking
     var id: String { rawValue }
 
-    /// The quiz question.
+    /// The quiz question, one per screen.
     var question: String {
+        switch self {
+        case .length: return "Do you send quick texts or full paragraphs?"
+        case .caps: return "Are you all lowercase, or capitals and full stops?"
+        case .emoji: return "How often do you use emoji?"
+        case .humour: return "Do you keep it sincere, or tease and joke?"
+        case .forward: return "When you like someone, do you play it cool or say it?"
+        case .looking: return "What are you looking for right now?"
+        }
+    }
+
+    /// Short name for the style card.
+    var name: String {
         switch self {
         case .length: return "Message length"
         case .caps: return "Capital letters"
+        case .emoji: return "Emoji"
         case .humour: return "Humour"
-        case .emoji: return "How often you use emoji"
         case .forward: return "When you like someone"
-        case .looking: return "What you're looking for"
+        case .looking: return "Looking for"
         }
     }
 
     /// Words at the 0 end and the 1 end of the slider.
     var ends: (low: String, high: String) {
         switch self {
-        case .length: return ("\"ya same\"", "a full paragraph")
-        case .caps: return ("all lowercase", "Proper Sentences.")
-        case .humour: return ("sincere", "dry and teasing")
-        case .emoji: return ("never", "in every text 😂")
-        case .forward: return ("play it cool", "say it")
-        case .looking: return ("something casual", "a relationship")
+        case .length: return ("quick texts ⚡️", "full paragraphs 📝")
+        case .caps: return ("all lowercase 😎", "Proper Sentences. ✍️")
+        case .emoji: return ("rarely 🙂", "all the time 😂")
+        case .humour: return ("sincere 🤍", "teasing 😏")
+        case .forward: return ("play it cool 🧊", "say it 💬")
+        case .looking: return ("something casual 🍸", "a relationship 💞")
         }
     }
 
@@ -51,29 +64,6 @@ enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
     /// Whether Coax can measure this from the user's own messages.
     var isMeasured: Bool { self == .length || self == .caps || self == .emoji }
 
-    /// The quiz asks only what texts can't show (decided Nov 5, built Nov 7).
-    /// Length, capitals and emoji are learned from the user's own messages.
-    static var quizTraits: [VoiceTrait] { allCases.filter { !$0.isMeasured } }
-}
-
-/// Setup has no texts yet, so the quiz asks for one: "Reply like you would".
-/// The typed line is measured the same way as the user's real texts, seeds
-/// length, capitals and emoji, and becomes their first example text.
-enum FirstText {
-    static let prompt = "what are you up to this weekend?"
-
-    /// Quiz answers measured from one typed text, or [:] when it's empty.
-    static func answers(from text: String) -> [String: Double] {
-        let words = text.split(whereSeparator: \.isWhitespace)
-        guard !words.isEmpty else { return [:] }
-        var out = [VoiceTrait.length.rawValue: min(max((Double(words.count) - 3) / 17, 0), 1)]
-        if let first = text.first(where: { $0.isLetter }) {
-            out[VoiceTrait.caps.rawValue] = first.isUppercase ? 0.9 : 0.1
-        }
-        let hasEmoji = text.unicodeScalars.contains { $0.properties.isEmojiPresentation }
-        out[VoiceTrait.emoji.rawValue] = hasEmoji ? 0.8 : 0.2
-        return out
-    }
 }
 
 /// The user's voice profile ("Your texting style"), kept on the phone only.

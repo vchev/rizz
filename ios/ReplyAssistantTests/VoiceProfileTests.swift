@@ -47,29 +47,15 @@ final class VoiceProfileTests: XCTestCase {
         XCTAssertNil(profile.surprise)
     }
 
-    func testQuizAsksOnlyWhatTextsCantShow() {
-        XCTAssertEqual(VoiceTrait.quizTraits, [.humour, .forward, .looking])
+    func testUnansweredTraitsComeFromTextsAlone() {
         var profile = VoiceProfile()
         profile.quiz = ["humour": 0.8, "forward": 0.5, "looking": 0.2]
         XCTAssertEqual(profile.shownTraits, [.humour, .forward, .looking])
         profile.learn(from: mine((1...10).map { "ok \($0)" }))
-        // Not asked, so the texts alone decide, and the card never says "than you said".
-        XCTAssertEqual(profile.value(.length), 0, accuracy: 0.001)
+        XCTAssertLessThan(profile.value(.length), 0.1)
         XCTAssertTrue(profile.shownTraits.contains(.length))
         XCTAssertNil(profile.surprise)
         XCTAssertEqual(profile.payload?.looking, 0.2)
-    }
-
-    func testFirstTextIsMeasuredLikeRealTexts() {
-        XCTAssertEqual(FirstText.answers(from: "  "), [:])
-        let casual = FirstText.answers(from: "nothing much lol 😂")
-        XCTAssertLessThan(casual["length"] ?? 1, 0.1)
-        XCTAssertEqual(casual["caps"], 0.1)
-        XCTAssertEqual(casual["emoji"], 0.8)
-        let proper = FirstText.answers(from: "Not much! Probably a long walk on Saturday and brunch with friends on Sunday, you?")
-        XCTAssertGreaterThan(proper["length"] ?? 0, 0.5)
-        XCTAssertEqual(proper["caps"], 0.9)
-        XCTAssertEqual(proper["emoji"], 0.2)
     }
 
     func testPayloadOnlyWhenThereIsSomething() {

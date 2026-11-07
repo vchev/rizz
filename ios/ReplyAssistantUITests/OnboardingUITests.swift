@@ -30,7 +30,7 @@ final class OnboardingUITests: XCTestCase {
         app.buttons["Set it up · 1 minute"].tap()
 
         // 2. Photos, inside the app, with consent naming the AI.
-        XCTAssertTrue(app.staticTexts["Replies are written by Claude, made by Anthropic"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Replies are written by a third-party AI"].waitForExistence(timeout: 5))
         save(app, "onboarding-2-photos")
         // Agreeing shows the result before moving on (no silent jump).
         app.buttons["Agree and allow Photos"].tap()
