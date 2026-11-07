@@ -113,16 +113,16 @@ struct KeyboardView: View {
                                                                : "Scan my last \(state.screenshotCount) screenshots again")
             }
         case .say:
-            HeaderLink(title: model.hasOwnIntent ? "Remove" : "Cancel",
-                       systemImage: model.hasOwnIntent ? "xmark" : "chevron.left") {
+            HeaderLink(title: model.hasIntent ? "Remove" : "Cancel",
+                       systemImage: model.hasIntent ? "xmark" : "chevron.left") {
                 state.panel = .replies
-                if model.hasOwnIntent {
+                if model.hasIntent {
                     state.insertedID = nil
                     state.selectedID = nil
                     Task { await model.clearIntent() }
                 }
             }
-            .accessibilityLabel(model.hasOwnIntent ? "Remove your line" : "Cancel, back to replies")
+            .accessibilityLabel(model.hasIntent ? "Remove your line" : "Cancel, back to replies")
         case .review:
             EmptyView()
         }
@@ -235,9 +235,9 @@ private struct RepliesPanel: View {
                         actions.insert(model.replies[selected])
                     }
                 }
-                MoodTagRow(model: model, background: Color(.systemBackground), sayPicks: true,
-                           onYourOwn: {
-                               state.sayDraft = model.hasOwnIntent ? model.intent : ""
+                MoodTagRow(model: model, background: Color(.systemBackground), tellCoax: true,
+                           onTellCoax: {
+                               state.sayDraft = model.intent
                                state.shifted = state.sayDraft.isEmpty
                                state.showingSymbols = false
                                state.panel = .say
