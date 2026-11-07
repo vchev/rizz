@@ -18,6 +18,10 @@ enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// What the quiz asks (Vanessa, Nov 7: no "looking for" or "when you like someone").
+    /// forward stays in the model: it learns quietly from the moods the user picks.
+    static let asked: [VoiceTrait] = [.length, .caps, .emoji, .humour]
+
     /// Short name for the style card.
     var name: String {
         switch self {
