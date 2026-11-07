@@ -9,7 +9,7 @@ struct VoiceProfileView: View {
     @State private var takingQuiz = !VoiceSettings.profile.hasQuiz
     @State private var answers: [String: Double] = {
         let saved = VoiceSettings.profile.quiz
-        return saved.isEmpty ? Dictionary(uniqueKeysWithValues: VoiceTrait.allCases.map { ($0.rawValue, 0.5) }) : saved
+        return saved.isEmpty ? Dictionary(uniqueKeysWithValues: VoiceTrait.quizTraits.map { ($0.rawValue, 0.5) }) : saved
     }()
     @State private var enabled = VoiceSettings.isEnabled
     @State private var learning = VoiceSettings.isLearning
@@ -37,12 +37,12 @@ struct VoiceProfileView: View {
             VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("How do you text?").font(.title.bold())
-                    Text("Slide each one. Your best guess is fine: Coax checks it against the chats you screenshot and fixes it over time.")
+                    Text("Three things Coax can't tell from your texts. Length, capitals and emoji it learns from the screenshots you already take.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 VStack(spacing: 24) {
-                    ForEach(VoiceTrait.allCases) { trait in
+                    ForEach(VoiceTrait.quizTraits) { trait in
                         VStack(alignment: .leading, spacing: 4) {
                             Text(trait.question).font(.headline)
                             Slider(value: binding(trait), in: 0...1)
@@ -102,7 +102,7 @@ struct VoiceProfileView: View {
                     if !profile.chips.isEmpty {
                         ChipRow(chips: profile.chips)
                     }
-                    ForEach(VoiceTrait.allCases) { trait in
+                    ForEach(profile.shownTraits) { trait in
                         TraitScale(trait: trait, value: profile.value(trait),
                                    quizValue: profile.surprise != nil ? profile.quiz[trait.rawValue] : nil)
                     }
@@ -165,7 +165,7 @@ struct VoiceProfileView: View {
                 Button("Reset my voice", role: .destructive) {
                     VoiceSettings.reset()
                     profile = VoiceProfile()
-                    answers = Dictionary(uniqueKeysWithValues: VoiceTrait.allCases.map { ($0.rawValue, 0.5) })
+                    answers = Dictionary(uniqueKeysWithValues: VoiceTrait.quizTraits.map { ($0.rawValue, 0.5) })
                     enabled = false
                     learning = true
                     takingQuiz = true

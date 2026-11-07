@@ -2,7 +2,7 @@ import Foundation
 
 /// One thing the voice profile tracks. Each is a slider from 0 to 1.
 enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
-    case length, caps, humour, emoji, forward
+    case length, caps, humour, emoji, forward, looking
     var id: String { rawValue }
 
     /// The quiz question.
@@ -13,6 +13,7 @@ enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
         case .humour: return "Humour"
         case .emoji: return "How often you use emoji"
         case .forward: return "When you like someone"
+        case .looking: return "What you're looking for"
         }
     }
 
@@ -24,6 +25,7 @@ enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
         case .humour: return ("sincere", "dry and teasing")
         case .emoji: return ("never", "in every text 😂")
         case .forward: return ("play it cool", "say it")
+        case .looking: return ("something casual", "a relationship")
         }
     }
 
@@ -40,12 +42,18 @@ enum VoiceTrait: String, Codable, CaseIterable, Identifiable {
         case (.emoji, _, true): return "emoji fan"
         case (.forward, true, _): return "plays it cool"
         case (.forward, _, true): return "says what they feel"
+        case (.looking, true, _): return "keeping it casual"
+        case (.looking, _, true): return "wants something real"
         default: return nil
         }
     }
 
     /// Whether Coax can measure this from the user's own messages.
     var isMeasured: Bool { self == .length || self == .caps || self == .emoji }
+
+    /// The quiz asks only what texts can't show (decided Nov 5, built Nov 7).
+    /// Length, capitals and emoji are learned from the user's own messages.
+    static var quizTraits: [VoiceTrait] { allCases.filter { !$0.isMeasured } }
 }
 
 /// The user's voice profile ("Your texting style"), kept on the phone only.
@@ -93,20 +101,27 @@ struct VoiceProfile: Codable, Equatable {
             return Double(capitalStarts) / Double(letterStarts)
         case .emoji:
             return min(Double(emojiMessages) / Double(messageCount) * 2, 1)   // half the texts = 1
-        case .humour, .forward:
+        case .humour, .forward, .looking:
             return nil
         }
     }
 
     /// The value used for replies: the quiz answer, moved toward what the messages show.
     func value(_ trait: VoiceTrait) -> Double {
+        // Not asked in the quiz (length, capitals, emoji): the texts alone decide.
+        if quiz[trait.rawValue] == nil, !trustQuiz, let seen = learned(trait) { return seen }
         let answer = quiz[trait.rawValue] ?? 0.5
         guard !trustQuiz, let seen = learned(trait) else { return answer }
         let weight = min(Double(messageCount) / Self.messagesForFullWeight, 1) * 0.8
         return answer * (1 - weight) + seen * weight
     }
 
-    var chips: [String] { VoiceTrait.allCases.compactMap { $0.chip(value($0)) } }
+    var chips: [String] { shownTraits.compactMap { $0.chip(value($0)) } }
+
+    /// Traits with something to show: a quiz answer or enough of the user's texts.
+    var shownTraits: [VoiceTrait] {
+        VoiceTrait.allCases.filter { quiz[$0.rawValue] != nil || learned($0) != nil }
+    }
 
     /// A one-line summary for the top of the style card.
     var headline: String {
@@ -177,7 +192,7 @@ struct VoiceProfile: Codable, Equatable {
             (quiz[t.rawValue] != nil || learned(t) != nil) ? (value(t) * 100).rounded() / 100 : nil
         }
         return Payload(length: v(.length), caps: v(.caps), humour: v(.humour), emoji: v(.emoji),
-                       forward: v(.forward), examples: Array(recent.suffix(Self.examplesSent)))
+                       forward: v(.forward), looking: v(.looking), examples: Array(recent.suffix(Self.examplesSent)))
     }
 
     /// The "voice" field of a reply request.
@@ -187,6 +202,7 @@ struct VoiceProfile: Codable, Equatable {
         var humour: Double?
         var emoji: Double?
         var forward: Double?
+        var looking: Double?
         var examples: [String]
     }
 }

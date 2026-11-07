@@ -1,6 +1,6 @@
 """Prompts for the reply engine. Bump PROMPT_VERSION whenever a prompt changes."""
 
-PROMPT_VERSION = 12
+PROMPT_VERSION = 13
 
 SYSTEM_PROMPT = """You write the user's next text message in a dating conversation.
 
@@ -83,6 +83,7 @@ VOICE_SLIDERS = {
     "humour": ("sincere and straightforward", "dry, teasing humour"),
     "emoji": ("almost never uses emoji", "uses emoji often"),
     "forward": ("plays it cool, never over-eager", "says what they feel, openly keen"),
+    "looking": ("wants something casual, keeps it light", "wants a real relationship, open about it"),
 }
 MAX_VOICE_EXAMPLES = 8
 
