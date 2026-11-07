@@ -79,6 +79,8 @@ struct ReplyFlowView: View {
             }
 
             if model.phase == .done {
+                SayPickRow(model: model) { copiedID = nil }
+                    .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
                 MoodTagRow(model: model) { copiedID = nil }
                     .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
             }
@@ -150,9 +152,13 @@ extension Color {
 
 /// Funny · Flirty · Sweet · Chill · Bold · Shorter. Tapping one gets 3 new replies in that
 /// mood; tapping the lit one again goes back to mixed moods.
+/// With `sayPicks` (the keyboard, which has no room for a second row) the "What should it
+/// say?" picks follow the moods in the same row, after a divider.
 struct MoodTagRow: View {
     @ObservedObject var model: ReplyFlowModel
     var background: Color = Color(.secondarySystemBackground)
+    var sayPicks = false
+    var onYourOwn: () -> Void = {}
     var onTap: () -> Void = {}
 
     var body: some View {
@@ -160,22 +166,201 @@ struct MoodTagRow: View {
             HStack(spacing: 6) {
                 ForEach(ReplyTone.allCases) { tone in
                     let on = model.tone == tone
-                    Button {
+                    CoaxChip(title: tone.label, on: on, background: background) {
                         onTap()
                         Task { await model.generate(tone: on ? nil : tone) }
-                    } label: {
-                        Text(tone.label)
-                            .font(.footnote.weight(.medium))
-                            .padding(.horizontal, 12)
-                            .frame(minHeight: 32)
-                            .background(on ? Color.coax : background, in: Capsule())
-                            .foregroundStyle(on ? Color.white : Color.primary)
                     }
-                    .buttonStyle(.plain)
                     .disabled(model.isBusy)
-                    .accessibilityAddTraits(on ? .isSelected : [])
+                }
+                if sayPicks {
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.35))
+                        .frame(width: 1, height: 20)
+                        .padding(.horizontal, 2)
+                        .accessibilityHidden(true)
+                    SayPickChips(model: model, background: background, onYourOwn: onYourOwn, onTap: onTap)
                 }
             }
         }
+    }
+}
+
+// MARK: - Tell Coax what to say
+
+/// "Tell Coax what to say" (Vanessa, Nov 7, option A): one tap says what the reply should
+/// do; the mood still sets how it sounds, so Funny + No is a funny no. "Your own" takes a
+/// short typed line instead. Free for everyone.
+enum SayPick: String, CaseIterable, Identifiable {
+    case yes, no, askOut, changeTopic
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .yes: return "Yes"
+        case .no: return "No"
+        case .askOut: return "Ask them out"
+        case .changeTopic: return "Change topic"
+        }
+    }
+
+    /// The line sent to the reply engine as `intent`.
+    var intent: String {
+        switch self {
+        case .yes: return "Say yes"
+        case .no: return "Say no"
+        case .askOut: return "Ask them out"
+        case .changeTopic: return "Change the topic"
+        }
+    }
+}
+
+extension ReplyFlowModel {
+    /// The quick pick that's on, if the current line is one of them.
+    var sayPick: SayPick? { SayPick.allCases.first { $0.intent == intent } }
+
+    /// True when the person typed their own line.
+    var hasOwnIntent: Bool {
+        sayPick == nil && !intent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Turns a quick pick on (or off, if it's already on) and gets fresh replies in the same mood.
+    func toggle(_ pick: SayPick) async {
+        intent = sayPick == pick ? "" : pick.intent
+        await generate(tone: tone)
+    }
+
+    /// Drops the line and gets fresh replies in the same mood.
+    func clearIntent() async {
+        intent = ""
+        await generate(tone: tone)
+    }
+}
+
+/// Yes · No · Ask them out · Change topic · Your own.
+struct SayPickChips: View {
+    @ObservedObject var model: ReplyFlowModel
+    var background: Color
+    var onYourOwn: () -> Void
+    var onTap: () -> Void
+
+    var body: some View {
+        ForEach(SayPick.allCases) { pick in
+            CoaxChip(title: pick.label, on: model.sayPick == pick, background: background) {
+                onTap()
+                Task { await model.toggle(pick) }
+            }
+            .accessibilityHint(Text(model.sayPick == pick ? "Turns this off" : "Gets replies that \(pick.intent.lowercased())"))
+            .disabled(model.isBusy)
+        }
+        CoaxChip(title: "Your own", systemImage: "pencil", on: model.hasOwnIntent, background: background,
+                 action: onYourOwn)
+            .accessibilityHint("Type what you want the reply to say")
+            .disabled(model.isBusy)
+    }
+}
+
+/// A pill-shaped tag. Lit (blue) when on.
+struct CoaxChip: View {
+    var title: String
+    var systemImage: String? = nil
+    var on: Bool
+    var background: Color
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let systemImage { Image(systemName: systemImage).imageScale(.small) }
+                Text(title)
+            }
+            .font(.footnote.weight(.medium))
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 32)
+            .background(on ? Color.coax : background, in: Capsule())
+            .foregroundStyle(on ? Color.white : Color.primary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+/// The app and the Messages app have room for their own row: "What should it say?", the
+/// quick picks, and a line to type your own (with Write, and Remove once one is in use).
+struct SayPickRow: View {
+    @ObservedObject var model: ReplyFlowModel
+    var background: Color = Color(.secondarySystemBackground)
+    /// Called when the typing line opens (the Messages app grows so the keyboard fits).
+    var onStartTyping: () -> Void = {}
+    var onTap: () -> Void = {}
+
+    @State private var typing = false
+    @State private var draft = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("What should it say?")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    SayPickChips(model: model, background: background, onYourOwn: startTyping, onTap: {
+                        typing = false
+                        onTap()
+                    })
+                }
+            }
+            if typing {
+                HStack(spacing: 8) {
+                    TextField("Like: say I'm busy, but free Sunday", text: $draft)
+                        .textFieldStyle(.roundedBorder)
+                        .focused($focused)
+                        .submitLabel(.go)
+                        .onSubmit(write)
+                        .onChange(of: draft) { _, new in
+                            if new.count > ReplyFlowModel.maxIntent { draft = String(new.prefix(ReplyFlowModel.maxIntent)) }
+                        }
+                        .accessibilityLabel("What should the reply say?")
+                    Button("Write", action: write)
+                        .buttonStyle(.plain)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.coax)
+                        .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isBusy)
+                }
+                Button(model.hasOwnIntent ? "Remove your line" : "Cancel") {
+                    typing = false
+                    focused = false
+                    if model.hasOwnIntent {
+                        onTap()
+                        Task { await model.clearIntent() }
+                    }
+                }
+                .buttonStyle(.plain)
+                .font(.footnote)
+                .foregroundStyle(Color.coax)
+            } else if model.hasOwnIntent {
+                Text("Saying: \u{201C}\(model.intent)\u{201D}")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        }
+    }
+
+    private func startTyping() {
+        draft = model.hasOwnIntent ? model.intent : ""
+        typing = true
+        onStartTyping()
+        focused = true
+    }
+
+    private func write() {
+        let line = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !line.isEmpty, !model.isBusy else { return }
+        typing = false
+        focused = false
+        onTap()
+        Task { await model.say(String(line.prefix(ReplyFlowModel.maxIntent))) }
     }
 }

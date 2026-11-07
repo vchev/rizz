@@ -25,7 +25,10 @@ final class KeyboardState: ObservableObject {
         didSet { UserDefaults.standard.set(screenshotCount, forKey: "screenshotCount") }
     }
 
-    enum Panel { case keys, replies, review, fullAccessHelp }
+    /// "Your own" line being typed on Coax's letter keys (the keyboard can't show Apple's).
+    @Published var sayDraft = ""
+
+    enum Panel { case keys, replies, review, fullAccessHelp, say }
 }
 
 /// The Coax keyboard: opens on your replies. Take a screenshot (or copy
