@@ -187,33 +187,6 @@ struct MoodTagRow: View {
 
 // MARK: - Tell Coax what to say
 
-/// "Tell Coax what to say" (Vanessa, Nov 7, option A): one tap says what the reply should
-/// do; the mood still sets how it sounds, so Funny + No is a funny no. "Your own" takes a
-/// short typed line instead. Free for everyone.
-enum SayPick: String, CaseIterable, Identifiable {
-    case yes, no, askOut, changeTopic
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .yes: return "Yes"
-        case .no: return "No"
-        case .askOut: return "Ask them out"
-        case .changeTopic: return "Change topic"
-        }
-    }
-
-    /// The line sent to the reply engine as `intent`.
-    var intent: String {
-        switch self {
-        case .yes: return "Say yes"
-        case .no: return "Say no"
-        case .askOut: return "Ask them out"
-        case .changeTopic: return "Change the topic"
-        }
-    }
-}
-
 extension ReplyFlowModel {
     /// The quick pick that's on, if the current line is one of them.
     var sayPick: SayPick? { SayPick.allCases.first { $0.intent == intent } }
