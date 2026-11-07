@@ -58,6 +58,9 @@ struct KeyboardView: View {
     /// keyboard), what this screen is for in the middle, one action on the right.
     private var header: some View {
         HStack(spacing: 8) {
+            // iPhones with Face ID already show a globe under the keyboard, so a
+            // second one here is repetitive (Vanessa, Nov 7) and squeezes the header.
+            if state.showsGlobe {
             Button(action: actions.nextKeyboard) {
                 Label("Keyboard", systemImage: "globe")
                     .font(.caption.weight(.semibold))
@@ -69,6 +72,7 @@ struct KeyboardView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Next keyboard")
             .accessibilityHint("Switches to your usual keyboard, for edits")
+            }
 
             Text(headerTitle)
                 .font(.caption.weight(.semibold))
@@ -77,6 +81,8 @@ struct KeyboardView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             headerAction
+                .fixedSize()
+                .layoutPriority(1)
         }
         .padding(.horizontal, 2)
     }
@@ -113,11 +119,13 @@ struct KeyboardView: View {
                     .accessibilityHint("Shows who said what, so you can fix it")
             }
             if showsScanAgain {
-                HeaderLink(title: "Scan again", systemImage: "arrow.clockwise") {
+                // Reads your latest screenshot(s) again, e.g. after new messages came in.
+                // Not a refresh of the replies (tapping a mood does that), so no refresh arrow.
+                HeaderLink(title: "New screenshot", systemImage: "camera.viewfinder") {
                     start(actions.getRepliesFromScreenshots)
                 }
-                .accessibilityLabel(state.screenshotCount == 1 ? "Scan my last screenshot again"
-                                                               : "Scan my last \(state.screenshotCount) screenshots again")
+                .accessibilityLabel(state.screenshotCount == 1 ? "Read my newest screenshot"
+                                                               : "Read my newest \(state.screenshotCount) screenshots")
             }
         case .say:
             HeaderLink(title: model.hasIntent ? "Remove" : "Cancel",
@@ -237,6 +245,9 @@ private struct RepliesPanel: View {
                     }
                     .padding(.horizontal, 2)
                 }
+                // Often only 2 of the 3 replies fit: show the scroll bar so the third isn't missed.
+                .scrollIndicators(.visible)
+                .scrollIndicatorsFlash(onAppear: true)
                 if let selected, !alreadyIn {
                     InsertButton(number: selected + 1, swapping: state.insertedID != nil) {
                         actions.insert(model.replies[selected])
@@ -383,7 +394,7 @@ private struct InsertedNote: View {
     var number: Int
 
     var body: some View {
-        Label("Reply \(number) is in your message. Send it, or tap Keyboard to edit it with your usual keys.", systemImage: "checkmark.circle.fill")
+        Label("Reply \(number) is in your message. Send it, or tap the globe to edit it with your usual keys.", systemImage: "checkmark.circle.fill")
             .font(.caption.weight(.semibold))
             .frame(maxWidth: .infinity, minHeight: 30)
             .padding(.horizontal, 8)
