@@ -1,8 +1,9 @@
 import SwiftUI
 import UIKit
+import StoreKit
 
 /// Settings, behind the gear on Home: setup status, your texting style,
-/// privacy. The plan (Sprint 4) slots in here later.
+/// your plan, privacy.
 struct SettingsView: View {
     /// Test builds only: runs first-time setup again.
     var onReplaySetup: (() -> Void)?
@@ -12,6 +13,12 @@ struct SettingsView: View {
     @State private var showVoice = false
     @State private var confirmClear = false
     @State private var cleared = false
+    @State private var showPaywall = false
+    @State private var manageSubscription = false
+    @ObservedObject private var purchases = Purchases.shared
+    #if DEBUG
+    @State private var testPaywall = AccessStore.testPaywall
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -30,6 +37,18 @@ struct SettingsView: View {
                     .accessibilityIdentifier("voiceProfileButton")
                 }
                 #endif
+
+                Section("Your plan") {
+                    if purchases.access == .subscribed && !AccessStore.isOff {
+                        LabeledContent("Coax", value: "Subscribed")
+                        Button("Manage subscription") { manageSubscription = true }
+                    } else {
+                        Button { showPaywall = true } label: {
+                            row("See plans", detail: planDetail)
+                        }
+                        .accessibilityIdentifier("seePlansButton")
+                    }
+                }
 
                 Section {
                     NavigationLink("What Coax sends") { PrivacyDetail() }
@@ -53,10 +72,19 @@ struct SettingsView: View {
                 }
 
                 #if DEBUG
-                if let onReplaySetup {
-                    Section("Test builds") {
+                Section {
+                    Toggle("Test the paywall", isOn: $testPaywall)
+                        .onChange(of: testPaywall) { _, on in
+                            AccessStore.testPaywall = on
+                            Task { await purchases.refresh() }
+                        }
+                    if let onReplaySetup {
                         Button("Show setup again") { onReplaySetup() }
                     }
+                } header: {
+                    Text("Test builds")
+                } footer: {
+                    Text("Builds from Xcode skip the paywall. Turn this on to use the real free-day rules. Buying here is a free test purchase.")
                 }
                 #endif
             }
@@ -66,8 +94,19 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
             .sheet(isPresented: $showVoice) { VoiceProfileView() }
+            .sheet(isPresented: $showPaywall) { PaywallView(context: .settings) }
+            .manageSubscriptionsSheet(isPresented: $manageSubscription)
         }
         .tint(Color.coax)
+    }
+
+    private var planDetail: String {
+        switch purchases.access {
+        case .freeDays(let left): return left == 1 ? "Last free day" : "\(left) free days left"
+        case .freeToday(let left): return "\(left) free today"
+        case .locked: return "Free days used"
+        case .subscribed: return "Free while testing"
+        }
     }
 
     private func status(_ title: String, on: Bool) -> some View {
