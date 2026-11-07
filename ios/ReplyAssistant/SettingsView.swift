@@ -147,6 +147,10 @@ private struct PrivacyDetail: View {
                 Text("Coax never saves what you type on its keyboard.")
                 Text("No account and no analytics. Your chats stay on this iPhone.")
             }
+            Section {
+                Link("Privacy policy", destination: PaywallView.privacyURL)
+                Link("Terms of use", destination: PaywallView.termsURL)
+            }
         }
         .navigationTitle("What Coax sends")
     }

@@ -36,6 +36,7 @@ app_refs = swift_files('ReplyAssistant').map { |f| app_group.new_file(File.basen
 app_group.new_file('Info.plist')
 config_ref = project.main_group.new_file('Config.xcconfig')
 project.main_group.new_file('Coax.storekit')
+privacy_ref = project.main_group.new_file('PrivacyInfo.xcprivacy')
 project.build_configurations.each { |c| c.base_configuration_reference = config_ref }
 assets_ref = app_group.new_file('Assets.xcassets')
 ext_refs = swift_files('ShareExtension').map { |f| ext_group.new_file(File.basename(f)) }
@@ -137,6 +138,9 @@ msg.add_system_framework('Messages')
 
 embed = app.new_copy_files_build_phase('Embed Foundation Extensions')
 embed.symbol_dst_subfolder_spec = :plug_ins
+# Apple privacy manifest in every bundle that ships
+[app, ext, kbd, msg].each { |t| t.resources_build_phase.add_file_reference(privacy_ref) }
+
 [ext, kbd, msg].each do |extension|
   app.add_dependency(extension)
   embed_file = embed.add_file_reference(extension.product_reference, true)

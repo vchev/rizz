@@ -209,7 +209,9 @@ PRIVACY_HTML = """<article><h1>Privacy policy</h1><p><small>Effective """ + POLI
 <p><strong>The short version:</strong> Coax has no account, no ads, no analytics and no tracking. Your screenshots are read on your phone and never uploaded. To write replies, the text of the chat goes to our server and our AI provider, and neither of them keeps it.</p>
 <h2>What stays on your phone</h2>
 <ul><li>Your screenshots. Coax reads the text in them on your iPhone (Apple's on-device text recognition). The images never leave your phone.</li>
-<li>The chats Coax has read, your texting style (quiz answers and what Coax learned from your own messages), your settings, and simple counts such as how many replies you picked. These are stored in the app on your phone and included in your iPhone backup. Deleting the app deletes them.</li></ul>
+<li>The chats Coax has read, your texting style (quiz answers and what Coax learned from your own messages), your settings, and simple counts such as how many replies you picked. These are stored in the app on your phone and included in your iPhone backup. Saved chats are deleted after 30 days. Deleting the app deletes all of it.</li>
+<li>What you type with the Coax keyboard. The keyboard never saves or sends your typing. It asks for Full Access only so it can read your latest screenshot and fetch replies.</li>
+<li>How much of the free period you have used, so the app knows when a subscription is needed.</li></ul>
 <h2>What leaves your phone, and why</h2>
 <p>When you ask for replies, Coax sends: the text of the chat (up to the last 60 messages, marked as yours or theirs), which app it came from, the mood you picked, anything you typed into "Tell Coax what to say", your texting-style settings with a few of your own recent texts as examples, and whether you are under 18 (so replies stay age-appropriate).</p>
 <p>This goes over an encrypted connection to our server, which passes it to our AI provider, Anthropic (the Claude API), to write the replies. The replies come back to your phone. Our server does not write the chat to disk or to logs. Anthropic processes it under a zero data retention agreement: it is not stored after the reply is written and is never used to train AI models.</p>
@@ -225,7 +227,7 @@ PRIVACY_HTML = """<article><h1>Privacy policy</h1><p><small>Effective """ + POLI
 <h2>Other people's messages</h2>
 <p>Chats include messages from the people you talk to. Coax uses them only to write your reply, keeps them only on your phone, and sends them only for that request.</p>
 <h2>Your choices</h2>
-<p>Turn off texting-style learning or reset it in the app's Settings. Delete the app to remove everything Coax stored. Because we don't keep your data on our servers, there is nothing else for us to delete; if you have a question or request, email <a href="mailto:press@hicoax.com">press@hicoax.com</a>.</p>
+<p>Clear your saved chats, or turn off or reset texting-style learning, in the app's Settings. Delete the app to remove everything Coax stored. Because we don't keep your data on our servers, there is nothing else for us to delete; if you have a question or request, email <a href="mailto:press@hicoax.com">press@hicoax.com</a>.</p>
 <h2>Changes</h2>
 <p>If this policy changes, we'll update the date above and, for important changes, tell you in the app.</p></article>"""
 
