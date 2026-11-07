@@ -53,6 +53,10 @@ struct ChatReview: View {
             Text(["Tap a message to switch who sent it", model.timing].compactMap { $0 }.joined(separator: " · "))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            // Stays up (dimmed) while new replies load after a move.
+            if model.canReorderScreenshots || (model.isBusy && model.previews.count > 1) {
+                ScreenshotOrderStrip(model: model)
+            }
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 6) {
@@ -98,6 +102,92 @@ struct ChatReview: View {
             .buttonStyle(.plain)
             .disabled(model.isBusy)
         }
+    }
+}
+
+/// The screenshots Coax read, oldest first (Vanessa, Nov 6: "they can just
+/// move it on the screen"). Drag one sideways to change the order; Coax
+/// rejoins the chat in that order and writes new replies. Auto-sort by the
+/// chat's dates is right most of the time, so this stays on the Check screen,
+/// off the main path.
+struct ScreenshotOrderStrip: View {
+    @ObservedObject var model: ReplyFlowModel
+    @State private var dragging: Int?
+    @State private var offset: CGFloat = 0
+
+    private let width: CGFloat = 36
+    private let gap: CGFloat = 12
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text("Screenshots, oldest first. Drag one to fix the order.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            HStack(spacing: gap) {
+                ForEach(Array(model.previews.enumerated()), id: \.offset) { index, image in
+                    thumbnail(index, image)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .opacity(model.isBusy ? 0.5 : 1)
+        .allowsHitTesting(!model.isBusy)
+        .accessibilityIdentifier("screenshotOrder")
+    }
+
+    private func thumbnail(_ index: Int, _ image: UIImage) -> some View {
+        let count = model.previews.count
+        let lifted = dragging == index
+        return Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .frame(width: width, height: width * 1.8)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(Color.coax, lineWidth: lifted ? 3 : 1.5))
+            .overlay(alignment: .topLeading) {
+                Text("\(index + 1)")
+                    .font(.caption2.weight(.bold))
+                    .frame(width: 18, height: 18)
+                    .background(Color.coax, in: Circle())
+                    .foregroundStyle(.white)
+                    .offset(x: -6, y: -6)
+            }
+            .scaleEffect(lifted ? 1.12 : 1)
+            .shadow(color: .black.opacity(lifted ? 0.25 : 0), radius: 6, y: 3)
+            .offset(x: lifted ? offset : 0)
+            .zIndex(lifted ? 1 : 0)
+            .gesture(
+                DragGesture(minimumDistance: 4)
+                    .onChanged { value in
+                        dragging = index
+                        offset = value.translation.width
+                    }
+                    .onEnded { value in
+                        let slots = Int((value.translation.width / (width + gap)).rounded())
+                        let target = min(max(index + slots, 0), count - 1)
+                        withAnimation(.spring(duration: 0.25)) {
+                            dragging = nil
+                            offset = 0
+                        }
+                        move(index, to: target)
+                    }
+            )
+            .accessibilityElement()
+            .accessibilityLabel("Screenshot \(index + 1) of \(count)")
+            .accessibilityHint("Swipe up or down to move it earlier or later")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: move(index, to: min(index + 1, count - 1))
+                case .decrement: move(index, to: max(index - 1, 0))
+                @unknown default: break
+                }
+            }
+    }
+
+    private func move(_ from: Int, to: Int) {
+        guard from != to else { return }
+        Task { await model.moveScreenshot(from: from, to: to) }
     }
 }
 
