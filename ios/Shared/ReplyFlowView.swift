@@ -233,7 +233,7 @@ struct SayPickChips: View {
             .accessibilityHint(Text(model.sayPick == pick ? "Turns this off" : "Gets replies that \(pick.intent.lowercased())"))
             .disabled(model.isBusy)
         }
-        CoaxChip(title: "Your own", systemImage: "pencil", on: model.hasOwnIntent, background: background,
+        CoaxChip(title: "Type what to say", systemImage: "pencil", on: model.hasOwnIntent, background: background,
                  action: onYourOwn)
             .accessibilityHint("Type what you want the reply to say")
             .disabled(model.isBusy)
@@ -297,7 +297,7 @@ struct SayPickRow: View {
             }
             if typing {
                 HStack(spacing: 8) {
-                    TextField("Like: say I'm busy, but free Sunday", text: $draft)
+                    TextField("e.g. say I'm busy, but free Sunday", text: $draft)
                         .textFieldStyle(.roundedBorder)
                         .focused($focused)
                         .submitLabel(.go)
@@ -306,7 +306,7 @@ struct SayPickRow: View {
                             if new.count > ReplyFlowModel.maxIntent { draft = String(new.prefix(ReplyFlowModel.maxIntent)) }
                         }
                         .accessibilityLabel("What should the reply say?")
-                    Button("Write", action: write)
+                    Button("Get replies", action: write)
                         .buttonStyle(.plain)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.coax)

@@ -87,7 +87,7 @@ struct KeyboardView: View {
             guard case .done = model.phase, !model.replies.isEmpty else { return "" }
             return state.insertedID == nil ? "Pick a reply" : "Changed your mind?"
         case .say:
-            return "What should it say?"
+            return "Tell Coax what to say"
         case .keys, .review, .fullAccessHelp:
             return ""
         }
@@ -517,7 +517,7 @@ private struct LetterKeys: View {
     }
 }
 
-/// "Your own": type what the reply should say on Coax's letter keys, then Write.
+/// "Type what to say": type what the reply should say on Coax's letter keys, then Get replies.
 /// Return also writes. Nothing typed here goes into the chat.
 private struct SayEditor: View {
     @ObservedObject var model: ReplyFlowModel
@@ -529,7 +529,7 @@ private struct SayEditor: View {
             HStack(spacing: 6) {
                 Group {
                     if state.sayDraft.isEmpty {
-                        Text("Like: say I'm busy, but free Sunday")
+                        Text("e.g. say I'm busy, but free Sunday")
                             .foregroundStyle(.secondary)
                     } else {
                         Text(state.sayDraft + "|")
@@ -545,7 +545,7 @@ private struct SayEditor: View {
                 .accessibilityLabel(Text(state.sayDraft.isEmpty ? "What should the reply say? Empty" : state.sayDraft))
 
                 Button(action: write) {
-                    Text("Write")
+                    Text("Get replies")
                         .font(.callout.weight(.bold))
                         .padding(.horizontal, 14)
                         .frame(minHeight: 34)
